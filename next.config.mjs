@@ -1,4 +1,4 @@
-import withPWA from "next-pwa";
+import withPWA from "@ducanh2912/next-pwa";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -117,10 +117,7 @@ export default withPWA({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
-  runtimeCaching,
-  // Precache the app shell so the menu loads even on first offline visit
-  // after the user has visited once.
-  fallbacks: {
-    document: "/offline",
+  workboxOptions: {
+    runtimeCaching,
   },
 })(nextConfig);
