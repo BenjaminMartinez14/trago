@@ -211,11 +211,13 @@ export async function POST(request: Request) {
       venueSlug: venue.slug,
     });
   } catch (err) {
-    console.error("[POST /api/orders] MP preference error:", err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errCause = (err as any)?.cause;
+    console.error("[POST /api/orders] MP preference error:", errMsg, errCause);
     // Roll back
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any).from("orders").update({ status: "cancelled" }).eq("id", order.id);
-    return NextResponse.json({ error: "PAYMENT_INIT_FAILED" }, { status: 502 });
+    return NextResponse.json({ error: "PAYMENT_INIT_FAILED", detail: errMsg }, { status: 502 });
   }
 
   // ── 10. Done ──────────────────────────────────────────────────────────────
