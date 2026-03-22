@@ -4,12 +4,15 @@ import { createServerClient } from "@supabase/ssr";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only guard /dashboard routes (except /dashboard/login)
-  if (!pathname.startsWith("/dashboard") || pathname === "/dashboard/login") {
-    return NextResponse.next();
-  }
+  const response = NextResponse.next({
+    request: { headers: new Headers(request.headers) },
+  });
+  response.headers.set("x-pathname", pathname);
 
-  const response = NextResponse.next();
+  // Only auth-guard /dashboard routes (except /dashboard/login)
+  if (!pathname.startsWith("/dashboard") || pathname === "/dashboard/login") {
+    return response;
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
