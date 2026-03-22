@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Clock, CreditCard, ChefHat, Bell, PartyPopper, Ban } from "lucide-react";
 import { useOrderStatus } from "@/hooks/useOrderStatus";
@@ -40,6 +41,27 @@ const StatusIcon = ({ status }: { status: OrderStatus }) => {
 export default function OrderConfirmationPage() {
   const params = useParams<{ venue: string; id: string }>();
   const { status, orderNumber, loading } = useOrderStatus(params.id);
+  const prevStatus = useRef(status);
+
+  // Vibrate + sound when order becomes ready
+  useEffect(() => {
+    if (prevStatus.current !== "ready" && status === "ready") {
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+      try {
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 660;
+        gain.gain.setValueAtTime(0.4, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.6);
+      } catch { /* AudioContext blocked */ }
+    }
+    prevStatus.current = status;
+  }, [status]);
 
   return (
     <div className="min-h-screen bg-trago-black flex flex-col items-center px-4 py-10 gap-8">
@@ -77,6 +99,15 @@ export default function OrderConfirmationPage() {
         />
       </div>
 
+      {/* Ready alert */}
+      {status === "ready" && (
+        <div className="w-full max-w-xs bg-trago-green/10 border-2 border-trago-green/40 rounded-2xl p-5 text-center animate-slide-up">
+          <Bell className="w-10 h-10 text-trago-green mx-auto mb-2 animate-bounce" />
+          <p className="text-trago-green font-display text-xl mb-1">¡Tu pedido está listo!</p>
+          <p className="text-trago-green/70 text-sm">Acércate a la barra y muestra el QR</p>
+        </div>
+      )}
+
       {/* Instructions */}
       <div className="text-center max-w-xs animate-fade-in">
         {status === "delivered" ? (
@@ -86,6 +117,8 @@ export default function OrderConfirmationPage() {
           </div>
         ) : status === "cancelled" ? (
           <p className="text-red-400 text-base">Tu pedido fue cancelado.</p>
+        ) : status === "ready" ? (
+          <p className="text-trago-muted text-sm">El barman escaneará tu QR para entregarte tu pedido.</p>
         ) : (
           <>
             <p className="text-white font-semibold text-base mb-1">

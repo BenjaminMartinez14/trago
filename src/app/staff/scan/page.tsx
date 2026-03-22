@@ -561,7 +561,8 @@ function OrderView({
   onBack: () => void;
 }) {
   const { order, items } = data;
-  const canDeliver = ["paid", "preparing", "ready"].includes(order.status);
+  const canMarkReady = ["paid", "preparing"].includes(order.status);
+  const canDeliver = order.status === "ready";
   const isPending = order.status === "pending";
 
   return (
@@ -623,7 +624,14 @@ function OrderView({
         {error && (
           <p className="text-red-400 text-sm text-center mb-3">{error}</p>
         )}
-        {canDeliver ? (
+        {canMarkReady ? (
+          <button
+            onClick={() => onOverride(order.id, "ready")}
+            className="w-full h-16 bg-trago-green text-white font-bold text-lg rounded-2xl touch-manipulation press-scale"
+          >
+            Pedido listo
+          </button>
+        ) : canDeliver ? (
           <button
             onClick={() => onDeliver(order.id)}
             className="w-full h-16 bg-trago-orange text-white font-bold text-lg rounded-2xl touch-manipulation press-scale glow-orange"
