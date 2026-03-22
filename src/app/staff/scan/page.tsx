@@ -632,12 +632,12 @@ function OrderView({
           </button>
         ) : isPending ? (
           <div className="space-y-2">
-            <p className="text-trago-muted text-xs text-center mb-1">Pago no confirmado — override manual:</p>
+            <p className="text-trago-muted text-xs text-center mb-1">Pago pendiente — override para testing:</p>
             <button
-              onClick={() => onOverride(order.id, "paid")}
-              className="w-full h-14 bg-trago-blue text-white font-bold rounded-2xl touch-manipulation press-scale"
+              onClick={() => onOverride(order.id, "delivered")}
+              className="w-full h-14 bg-zinc-700 text-white font-bold rounded-2xl touch-manipulation press-scale border border-trago-border"
             >
-              Marcar como pagado
+              Override: Marcar como entregado
             </button>
           </div>
         ) : (
