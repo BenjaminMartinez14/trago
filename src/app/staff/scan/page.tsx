@@ -179,6 +179,26 @@ export default function StaffScanPage() {
     }
   }
 
+  async function handleOverride(orderId: string, newStatus: string) {
+    if (!session) return;
+    try {
+      const res = await fetch(`/api/staff/orders/${orderId}/override`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        // Re-fetch order to update UI
+        handleScan(orderId);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   async function handleDeliver(orderId: string) {
     if (!session) return;
     setState({ phase: "delivering" });
@@ -284,6 +304,7 @@ export default function StaffScanPage() {
             data={state.data}
             error={state.error}
             onDeliver={handleDeliver}
+            onOverride={handleOverride}
             onBack={() => setState({ phase: "scanning" })}
           />
         )}
@@ -530,15 +551,18 @@ function OrderView({
   data,
   error,
   onDeliver,
+  onOverride,
   onBack,
 }: {
   data: ScannedOrder;
   error?: string;
   onDeliver: (id: string) => void;
+  onOverride: (id: string, status: string) => void;
   onBack: () => void;
 }) {
   const { order, items } = data;
   const canDeliver = ["paid", "preparing", "ready"].includes(order.status);
+  const isPending = order.status === "pending";
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -606,6 +630,16 @@ function OrderView({
           >
             Marcar como entregado
           </button>
+        ) : isPending ? (
+          <div className="space-y-2">
+            <p className="text-trago-muted text-xs text-center mb-1">Pago no confirmado — override manual:</p>
+            <button
+              onClick={() => onOverride(order.id, "paid")}
+              className="w-full h-14 bg-trago-blue text-white font-bold rounded-2xl touch-manipulation press-scale"
+            >
+              Marcar como pagado
+            </button>
+          </div>
         ) : (
           <div className="w-full h-14 bg-trago-card rounded-2xl flex items-center justify-center border border-trago-border">
             <p className="text-trago-muted text-sm">
