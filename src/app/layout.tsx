@@ -1,18 +1,31 @@
-import type { Metadata } from "next";
-import localFont from "next/font/local";
+import type { Metadata, Viewport } from "next";
+import { Poppins, Righteous } from "next/font/google";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-poppins",
+  display: "swap",
 });
+
+const righteous = Righteous({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-righteous",
+  display: "swap",
+});
+
+export const viewport: Viewport = {
+  themeColor: "#050505",
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   title: "Trago",
   description: "Ordena y paga desde tu celular — sin filas.",
   manifest: "/manifest.json",
-  themeColor: "#000000",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -27,7 +40,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="dark">
-      <body className={`${geistSans.variable} antialiased bg-black text-white`}>
+      <body
+        className={`${poppins.variable} ${righteous.variable} font-sans antialiased bg-trago-black text-white`}
+      >
         {children}
       </body>
     </html>

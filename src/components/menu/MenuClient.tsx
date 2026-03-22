@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { ShoppingBag, ChevronRight } from "lucide-react";
 import type { Category, Product, Venue } from "@/lib/supabase/types";
 import CategoryNav from "./CategoryNav";
 import ProductCard from "./ProductCard";
@@ -25,9 +26,9 @@ export default function MenuClient({ venue, categories, products }: MenuClientPr
   }, [products, selectedCategoryId]);
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-trago-black">
       {/* Sticky header */}
-      <header className="sticky top-0 z-20 bg-black/95 backdrop-blur-sm border-b border-zinc-800/60">
+      <header className="sticky top-0 z-20 glass-heavy">
         <div className="px-4 pt-4 pb-0 flex items-center gap-3">
           {venue.logo_url ? (
             <Image
@@ -38,7 +39,7 @@ export default function MenuClient({ venue, categories, products }: MenuClientPr
               className="rounded-lg object-cover flex-shrink-0"
             />
           ) : null}
-          <h1 className="text-xl font-bold text-white tracking-tight">{venue.name}</h1>
+          <h1 className="text-xl font-display text-white tracking-tight">{venue.name}</h1>
         </div>
 
         <div className="px-4">
@@ -53,8 +54,8 @@ export default function MenuClient({ venue, categories, products }: MenuClientPr
       {/* Product list */}
       <main className="px-4 py-4 pb-32 space-y-3">
         {visibleProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
-            <span className="text-4xl mb-3" aria-hidden>🫙</span>
+          <div className="flex flex-col items-center justify-center py-20 text-trago-muted">
+            <ShoppingBag className="w-12 h-12 mb-3 opacity-40" />
             <p className="text-base">Sin productos disponibles</p>
           </div>
         ) : (
@@ -66,18 +67,21 @@ export default function MenuClient({ venue, categories, products }: MenuClientPr
 
       {/* Floating cart bar */}
       {totalCount > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-30 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="fixed bottom-0 inset-x-0 z-30 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] animate-slide-up">
           <Link
             href={`/${venue.slug}/cart`}
-            className="flex items-center justify-between w-full bg-white text-black rounded-2xl px-5 h-16 shadow-2xl touch-manipulation"
+            className="flex items-center justify-between w-full bg-trago-orange text-white rounded-2xl px-5 h-16 glow-orange touch-manipulation press-scale"
           >
-            <span className="flex items-center gap-2.5">
-              <span className="bg-black text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center tabular-nums">
+            <span className="flex items-center gap-3">
+              <span className="bg-white/20 text-white text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center tabular-nums">
                 {totalCount}
               </span>
               <span className="font-semibold text-base">Ver pedido</span>
             </span>
-            <span className="font-bold text-base tabular-nums">{formatCLP(totalCLP)}</span>
+            <span className="flex items-center gap-1">
+              <span className="font-bold text-base tabular-nums">{formatCLP(totalCLP)}</span>
+              <ChevronRight className="w-5 h-5 opacity-70" />
+            </span>
           </Link>
         </div>
       )}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
+import { ArrowLeft, ShoppingBag, ChevronRight } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import CartItemRow from "@/components/menu/CartItemRow";
 import { formatCLP } from "@/lib/format";
@@ -13,30 +14,32 @@ export default function CartPage() {
   const slug = params.venue;
 
   return (
-    <div className="min-h-screen bg-black flex flex-col">
+    <div className="min-h-screen bg-trago-black flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-black/95 backdrop-blur-sm border-b border-zinc-800/60">
+      <header className="sticky top-0 z-20 glass-heavy">
         <div className="flex items-center gap-3 px-4 h-16">
           <button
             onClick={() => router.back()}
             aria-label="Volver al menú"
-            className="w-10 h-10 flex items-center justify-center text-white text-xl touch-manipulation -ml-1"
+            className="w-10 h-10 flex items-center justify-center text-white touch-manipulation -ml-1 rounded-xl hover:bg-white/5 transition-colors"
           >
-            ←
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-xl font-bold text-white tracking-tight">Mi pedido</h1>
+          <h1 className="text-xl font-display text-white tracking-tight">Mi pedido</h1>
         </div>
       </header>
 
       {items.length === 0 ? (
         /* Empty state */
         <div className="flex-1 flex flex-col items-center justify-center px-4 text-center gap-4">
-          <span className="text-5xl" aria-hidden>🛒</span>
+          <div className="w-20 h-20 rounded-full bg-trago-card border border-trago-border flex items-center justify-center">
+            <ShoppingBag className="w-9 h-9 text-zinc-500" />
+          </div>
           <p className="text-white font-semibold text-lg">Tu pedido está vacío</p>
-          <p className="text-zinc-400 text-sm">Agrega productos desde el menú</p>
+          <p className="text-trago-muted text-sm">Agrega productos desde el menú</p>
           <Link
             href={`/${slug}`}
-            className="mt-2 h-12 px-6 bg-white text-black font-semibold rounded-xl flex items-center touch-manipulation"
+            className="mt-2 h-12 px-6 bg-trago-orange text-white font-semibold rounded-xl flex items-center touch-manipulation press-scale glow-orange-sm"
           >
             Ver menú
           </Link>
@@ -50,10 +53,10 @@ export default function CartPage() {
             ))}
 
             {/* Order notes */}
-            <div className="bg-zinc-900 rounded-2xl p-4 mt-2">
+            <div className="bg-trago-card rounded-2xl p-4 mt-2 border border-trago-border">
               <label
                 htmlFor="order-notes"
-                className="block text-zinc-400 text-sm font-medium mb-2"
+                className="block text-trago-muted text-sm font-medium mb-2"
               >
                 Notas del pedido (opcional)
               </label>
@@ -63,24 +66,25 @@ export default function CartPage() {
                 onChange={(e) => setOrderNotes(e.target.value)}
                 placeholder="Ej: sin hielo, sin gas…"
                 rows={3}
-                className="w-full bg-zinc-800 text-white placeholder-zinc-500 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-white/20"
+                className="w-full bg-trago-dark text-white placeholder-zinc-600 rounded-xl px-4 py-3 text-sm resize-none border border-trago-border focus:outline-none focus:ring-2 focus:ring-trago-orange/30 focus:border-trago-orange/50 transition-all"
               />
             </div>
           </main>
 
           {/* Sticky checkout footer */}
-          <div className="fixed bottom-0 inset-x-0 z-30 bg-black/95 backdrop-blur-sm border-t border-zinc-800/60 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="fixed bottom-0 inset-x-0 z-30 glass-heavy px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <div className="flex items-center justify-between mb-3 px-1">
-              <span className="text-zinc-400 text-base">Total</span>
+              <span className="text-trago-muted text-base">Total</span>
               <span className="text-white font-bold text-xl tabular-nums">
                 {formatCLP(totalCLP)}
               </span>
             </div>
             <Link
               href={`/${slug}/checkout`}
-              className="flex items-center justify-center w-full h-16 bg-white text-black font-bold text-lg rounded-2xl shadow-2xl touch-manipulation"
+              className="flex items-center justify-center gap-2 w-full h-16 bg-trago-orange text-white font-bold text-lg rounded-2xl glow-orange touch-manipulation press-scale"
             >
-              Ir al pago
+              <span>Ir al pago</span>
+              <ChevronRight className="w-5 h-5 opacity-70" />
             </Link>
           </div>
         </>

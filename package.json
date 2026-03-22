@@ -17,6 +17,7 @@
     "bcryptjs": "^3.0.3",
     "html5-qrcode": "^2.3.8",
     "jose": "^6.2.2",
+    "lucide-react": "^0.577.0",
     "mercadopago": "^2.12.0",
     "next": "14.2.35",
     "qrcode.react": "^4.2.0",

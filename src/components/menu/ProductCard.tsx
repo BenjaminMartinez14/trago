@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { Plus, Check, Wine } from "lucide-react";
 import type { Product } from "@/lib/supabase/types";
 import { useCart } from "@/hooks/useCart";
 import { formatCLP } from "@/lib/format";
@@ -21,7 +22,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   }
 
   return (
-    <div className="flex gap-3 bg-zinc-900 rounded-2xl overflow-hidden">
+    <div className="flex gap-3 bg-trago-card rounded-2xl overflow-hidden border border-trago-border hover:border-zinc-700/50 transition-colors duration-200 animate-fade-in">
       {/* Thumbnail */}
       {product.image_url ? (
         <div className="relative w-28 flex-shrink-0">
@@ -34,17 +35,17 @@ export default function ProductCard({ product }: ProductCardProps) {
           />
         </div>
       ) : (
-        <div className="w-28 flex-shrink-0 bg-zinc-800 flex items-center justify-center">
-          <span className="text-3xl select-none" aria-hidden>🥃</span>
+        <div className="w-28 flex-shrink-0 bg-trago-dark flex items-center justify-center">
+          <Wine className="w-8 h-8 text-zinc-600" aria-hidden />
         </div>
       )}
 
       {/* Content */}
       <div className="flex-1 flex flex-col justify-between py-4 pr-4 min-w-0">
         <div>
-          <p className="text-white font-bold text-base leading-snug">{product.name}</p>
+          <p className="text-white font-semibold text-base leading-snug">{product.name}</p>
           {product.description && (
-            <p className="text-zinc-400 text-sm mt-0.5 leading-snug line-clamp-2">
+            <p className="text-trago-muted text-sm mt-0.5 leading-snug line-clamp-2">
               {product.description}
             </p>
           )}
@@ -59,14 +60,22 @@ export default function ProductCard({ product }: ProductCardProps) {
             onClick={handleAdd}
             aria-label={`Agregar ${product.name} al carrito`}
             className={[
-              "flex-shrink-0 min-w-[48px] h-12 px-4 rounded-xl font-bold text-sm",
-              "transition-all duration-150 touch-manipulation select-none",
+              "flex-shrink-0 min-w-[48px] h-12 px-4 rounded-xl font-semibold text-sm",
+              "transition-all duration-200 touch-manipulation press-scale",
+              "flex items-center justify-center gap-1.5",
               added
-                ? "bg-green-500 text-white scale-95"
-                : "bg-white text-black hover:bg-zinc-200 active:scale-95",
+                ? "bg-trago-green text-white"
+                : "bg-trago-orange text-white hover:bg-trago-orange-light glow-orange-sm",
             ].join(" ")}
           >
-            {added ? "✓" : "+ Agregar"}
+            {added ? (
+              <Check className="w-5 h-5" strokeWidth={3} />
+            ) : (
+              <>
+                <Plus className="w-4 h-4" strokeWidth={3} />
+                <span>Agregar</span>
+              </>
+            )}
           </button>
         </div>
       </div>

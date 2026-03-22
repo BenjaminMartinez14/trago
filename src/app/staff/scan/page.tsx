@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { ArrowLeft, Bell, Camera, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatCLP } from "@/lib/format";
 import { ORDER_STATUS_LABELS } from "@/lib/constants";
@@ -214,9 +215,9 @@ export default function StaffScanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col">
+    <div className="min-h-screen bg-trago-black flex flex-col">
       {/* Header */}
-      <header className="bg-zinc-900 border-b border-zinc-800 px-4 h-14 flex items-center justify-between flex-shrink-0">
+      <header className="glass-heavy px-4 h-14 flex items-center justify-between flex-shrink-0">
         <div>
           <p className="text-white font-semibold text-sm">{session?.name}</p>
           <p className="text-zinc-500 text-xs capitalize">{session?.role}</p>
@@ -231,19 +232,19 @@ export default function StaffScanPage() {
 
       {/* New orders alerts */}
       {newOrders.length > 0 && (
-        <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-4 py-2 flex-shrink-0">
-          <p className="text-yellow-400 text-xs font-semibold uppercase tracking-wide mb-1.5">
-            🔔 Nuevos pedidos pagados ({newOrders.length})
+        <div className="bg-trago-orange/10 border-b border-trago-orange/20 px-4 py-2 flex-shrink-0">
+          <p className="text-trago-orange text-xs font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+            <Bell className="w-3.5 h-3.5" /> Nuevos pedidos pagados ({newOrders.length})
           </p>
           <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
             {newOrders.map((o) => (
               <button
                 key={o.id}
                 onClick={() => handleScan(o.id)}
-                className="flex-shrink-0 bg-yellow-500/20 border border-yellow-500/40 rounded-xl px-3 py-1.5 text-left touch-manipulation"
+                className="flex-shrink-0 bg-trago-orange/15 border border-trago-orange/30 rounded-xl px-3 py-1.5 text-left touch-manipulation press-scale"
               >
-                <p className="text-yellow-300 font-bold text-sm">#{o.orderNumber}</p>
-                <p className="text-yellow-400/70 text-xs">{formatCLP(o.totalCLP)}</p>
+                <p className="text-trago-orange-light font-bold text-sm">#{o.orderNumber}</p>
+                <p className="text-trago-orange/60 text-xs">{formatCLP(o.totalCLP)}</p>
               </button>
             ))}
           </div>
@@ -258,18 +259,20 @@ export default function StaffScanPage() {
 
         {state.phase === "loading_order" && (
           <div className="flex-1 flex items-center justify-center gap-3 flex-col">
-            <div className="w-8 h-8 border-2 border-zinc-600 border-t-white rounded-full animate-spin" />
-            <p className="text-zinc-400 text-sm">Cargando pedido…</p>
+            <Loader2 className="w-8 h-8 text-trago-orange animate-spin" />
+            <p className="text-trago-muted text-sm">Cargando pedido…</p>
           </div>
         )}
 
         {state.phase === "scan_error" && (
           <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-4">
-            <span className="text-4xl" aria-hidden>⚠️</span>
+            <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+              <AlertTriangle className="w-7 h-7 text-red-400" />
+            </div>
             <p className="text-white font-semibold text-lg">{state.message}</p>
             <button
               onClick={() => setState({ phase: "scanning" })}
-              className="h-12 px-8 bg-white text-black font-bold rounded-xl touch-manipulation"
+              className="h-12 px-8 bg-trago-orange text-white font-bold rounded-xl touch-manipulation press-scale glow-orange-sm"
             >
               Volver a escanear
             </button>
@@ -287,16 +290,18 @@ export default function StaffScanPage() {
 
         {state.phase === "delivering" && (
           <div className="flex-1 flex items-center justify-center gap-3 flex-col">
-            <div className="w-8 h-8 border-2 border-zinc-600 border-t-white rounded-full animate-spin" />
-            <p className="text-zinc-400 text-sm">Marcando como entregado…</p>
+            <Loader2 className="w-8 h-8 text-trago-orange animate-spin" />
+            <p className="text-trago-muted text-sm">Marcando como entregado…</p>
           </div>
         )}
 
         {state.phase === "done" && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
-            <span className="text-6xl" aria-hidden>✅</span>
-            <p className="text-white font-bold text-2xl">¡Entregado!</p>
-            <p className="text-zinc-400">Pedido #{state.orderNumber}</p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center animate-fade-in">
+            <div className="w-20 h-20 rounded-full bg-trago-green/10 border border-trago-green/20 flex items-center justify-center">
+              <CheckCircle2 className="w-10 h-10 text-trago-green" />
+            </div>
+            <p className="text-white font-display text-2xl">¡Entregado!</p>
+            <p className="text-trago-muted">Pedido #{state.orderNumber}</p>
           </div>
         )}
       </div>
@@ -365,10 +370,10 @@ function LoginView({ onSuccess }: { onSuccess: (s: StaffSession) => void }) {
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-6 gap-8">
+    <div className="min-h-screen bg-trago-black flex flex-col items-center justify-center px-6 gap-8">
       <div className="text-center">
-        <p className="text-white font-bold text-2xl mb-1">Staff — Trago</p>
-        <p className="text-zinc-400 text-sm">Ingresa con tu PIN</p>
+        <p className="text-white font-display text-2xl mb-1">Staff — Trago</p>
+        <p className="text-trago-muted text-sm">Ingresa con tu PIN</p>
       </div>
 
       {/* Venue slug */}
@@ -377,7 +382,7 @@ function LoginView({ onSuccess }: { onSuccess: (s: StaffSession) => void }) {
         value={venueSlug}
         onChange={(e) => setVenueSlug(e.target.value.toLowerCase().replace(/\s/g, "-"))}
         placeholder="Slug del local (ej: club-demo)"
-        className="w-full max-w-xs bg-zinc-800 text-white placeholder-zinc-500 rounded-xl px-4 h-12 text-sm focus:outline-none focus:ring-2 focus:ring-white/20"
+        className="w-full max-w-xs bg-trago-card text-white placeholder-zinc-600 rounded-xl px-4 h-12 text-sm border border-trago-border focus:outline-none focus:ring-2 focus:ring-trago-orange/30 focus:border-trago-orange/50 transition-all"
       />
 
       {/* PIN dots */}
@@ -385,9 +390,9 @@ function LoginView({ onSuccess }: { onSuccess: (s: StaffSession) => void }) {
         {Array.from({ length: PIN_LENGTH }).map((_, i) => (
           <div
             key={i}
-            className={`w-4 h-4 rounded-full border-2 transition-colors ${
+            className={`w-4 h-4 rounded-full border-2 transition-all duration-200 ${
               i < pin.length
-                ? "bg-white border-white"
+                ? "bg-trago-orange border-trago-orange glow-orange-sm"
                 : "border-zinc-600"
             }`}
           />
@@ -407,7 +412,7 @@ function LoginView({ onSuccess }: { onSuccess: (s: StaffSession) => void }) {
                 key={idx}
                 onClick={handleDelete}
                 disabled={loading}
-                className="h-16 bg-zinc-800 text-white text-2xl rounded-2xl flex items-center justify-center touch-manipulation active:bg-zinc-700 disabled:opacity-40"
+                className="h-16 bg-trago-card text-white text-2xl rounded-2xl flex items-center justify-center touch-manipulation press-scale border border-trago-border disabled:opacity-40"
               >
                 ⌫
               </button>
@@ -491,9 +496,11 @@ function ScannerView({ onScan }: { onScan: (orderId: string) => void }) {
   if (cameraError) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-4">
-        <span className="text-4xl" aria-hidden>📷</span>
+        <div className="w-16 h-16 rounded-full bg-trago-card border border-trago-border flex items-center justify-center">
+          <Camera className="w-7 h-7 text-trago-muted" />
+        </div>
         <p className="text-white font-semibold">Sin acceso a la cámara</p>
-        <p className="text-zinc-400 text-sm">
+        <p className="text-trago-muted text-sm">
           Permite el acceso a la cámara en la configuración de tu navegador y recarga la página.
         </p>
       </div>
@@ -502,15 +509,15 @@ function ScannerView({ onScan }: { onScan: (orderId: string) => void }) {
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4">
-      <p className="text-zinc-400 text-sm">Apunta al QR del cliente</p>
+      <p className="text-trago-muted text-sm">Apunta al QR del cliente</p>
       {/* html5-qrcode mounts inside this div */}
       <div
         id="qr-reader"
-        className="w-full max-w-sm rounded-2xl overflow-hidden bg-zinc-900"
+        className="w-full max-w-sm rounded-2xl overflow-hidden bg-trago-card border border-trago-border"
         style={{ minHeight: 300 }}
       />
-      <div className="flex items-center gap-2 text-zinc-600 text-xs">
-        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+      <div className="flex items-center gap-2 text-trago-muted text-xs">
+        <span className="w-2 h-2 bg-trago-green rounded-full animate-pulse-glow" />
         Escáner activo
       </div>
     </div>
@@ -539,14 +546,14 @@ function OrderView({
       <div className="px-4 pt-4 pb-2 flex items-center gap-3">
         <button
           onClick={onBack}
-          className="text-zinc-400 text-xl touch-manipulation"
+          className="w-10 h-10 flex items-center justify-center text-white touch-manipulation rounded-xl hover:bg-white/5 transition-colors -ml-1"
           aria-label="Volver"
         >
-          ←
+          <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <p className="text-white font-bold text-xl">Pedido #{order.order_number}</p>
-          <p className="text-zinc-400 text-xs capitalize">
+          <p className="text-white font-display text-xl">Pedido #{order.order_number}</p>
+          <p className="text-trago-muted text-xs capitalize">
             {ORDER_STATUS_LABELS[order.status as OrderStatus]}
           </p>
         </div>
@@ -557,7 +564,7 @@ function OrderView({
         {items.map((item) => (
           <div
             key={item.id}
-            className="flex justify-between items-center bg-zinc-900 rounded-xl px-4 py-3"
+            className="flex justify-between items-center bg-trago-card rounded-xl px-4 py-3 border border-trago-border"
           >
             <div>
               <p className="text-white font-medium">{item.product_name}</p>
@@ -575,8 +582,8 @@ function OrderView({
         ))}
 
         {order.notes && (
-          <div className="bg-zinc-900 rounded-xl px-4 py-3">
-            <p className="text-zinc-400 text-xs mb-1">Nota del pedido</p>
+          <div className="bg-trago-card rounded-xl px-4 py-3 border border-trago-border">
+            <p className="text-trago-muted text-xs mb-1">Nota del pedido</p>
             <p className="text-white text-sm">{order.notes}</p>
           </div>
         )}
@@ -595,13 +602,13 @@ function OrderView({
         {canDeliver ? (
           <button
             onClick={() => onDeliver(order.id)}
-            className="w-full h-16 bg-white text-black font-bold text-lg rounded-2xl touch-manipulation"
+            className="w-full h-16 bg-trago-orange text-white font-bold text-lg rounded-2xl touch-manipulation press-scale glow-orange"
           >
             Marcar como entregado
           </button>
         ) : (
-          <div className="w-full h-14 bg-zinc-800 rounded-2xl flex items-center justify-center">
-            <p className="text-zinc-400 text-sm">
+          <div className="w-full h-14 bg-trago-card rounded-2xl flex items-center justify-center border border-trago-border">
+            <p className="text-trago-muted text-sm">
               Estado: {ORDER_STATUS_LABELS[order.status as OrderStatus]}
             </p>
           </div>

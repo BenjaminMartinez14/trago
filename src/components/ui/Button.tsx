@@ -1,6 +1,7 @@
 "use client";
 
 import { ButtonHTMLAttributes, forwardRef } from "react";
+import { Loader2 } from "lucide-react";
 
 type Variant = "primary" | "secondary" | "ghost";
 type Size = "sm" | "md" | "lg";
@@ -12,9 +13,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<Variant, string> = {
-  primary: "bg-white text-black font-semibold hover:bg-zinc-200 active:bg-zinc-300",
-  secondary: "bg-zinc-800 text-white font-semibold hover:bg-zinc-700 active:bg-zinc-600 border border-zinc-700",
-  ghost: "bg-transparent text-white hover:bg-zinc-800 active:bg-zinc-700",
+  primary: "bg-trago-orange text-white font-semibold hover:bg-trago-orange-light glow-orange-sm",
+  secondary: "bg-trago-card text-white font-semibold hover:bg-trago-card-hover border border-trago-border",
+  ghost: "bg-transparent text-white hover:bg-white/5",
 };
 
 const sizeClasses: Record<Size, string> = {
@@ -41,9 +42,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={[
-          "inline-flex items-center justify-center gap-2 transition-colors duration-150",
+          "inline-flex items-center justify-center gap-2 transition-all duration-200",
           "disabled:opacity-40 disabled:cursor-not-allowed",
-          "select-none touch-manipulation",
+          "select-none touch-manipulation press-scale",
           variantClasses[variant],
           sizeClasses[size],
           className,
@@ -51,7 +52,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading ? (
-          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
           children
         )}

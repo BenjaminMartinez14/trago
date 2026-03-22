@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { Plus, Pencil, Trash2, Upload, X, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatCLP } from "@/lib/format";
 import type { Category, Product } from "@/lib/supabase/types";
@@ -53,17 +54,17 @@ export default function DashboardMenuPage() {
 
   return (
     <div className="max-w-5xl">
-      <h1 className="text-2xl font-bold mb-6">Menú</h1>
+      <h1 className="text-2xl font-display mb-6">Menú</h1>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-zinc-900 border border-zinc-800 rounded-xl p-1 mb-6 w-fit">
+      <div className="flex gap-1 bg-trago-card border border-trago-border rounded-xl p-1 mb-6 w-fit">
         {(["products", "categories"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
               activeTab === tab
-                ? "bg-amber-500 text-black"
+                ? "bg-trago-orange text-white"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
@@ -75,7 +76,7 @@ export default function DashboardMenuPage() {
       {loading ? (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="bg-zinc-900 rounded-xl h-16 animate-pulse" />
+            <div key={i} className="bg-trago-card rounded-xl h-16 animate-pulse border border-trago-border" />
           ))}
         </div>
       ) : activeTab === "products" ? (
@@ -142,9 +143,9 @@ function ProductsTab({
       <div className="flex justify-end mb-4">
         <button
           onClick={openNew}
-          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-lg text-sm transition-colors"
+          className="px-4 py-2 bg-trago-orange hover:bg-trago-orange-light text-white font-semibold rounded-lg text-sm transition-colors press-scale flex items-center gap-1.5"
         >
-          + Nuevo producto
+          <Plus className="w-4 h-4" /> Nuevo producto
         </button>
       </div>
 
@@ -160,25 +161,25 @@ function ProductsTab({
         />
       )}
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+      <div className="bg-trago-card border border-trago-border rounded-xl overflow-hidden">
         {products.length === 0 ? (
-          <p className="text-zinc-500 text-sm text-center py-12">
+          <p className="text-trago-muted text-sm text-center py-12">
             No hay productos. Crea el primero.
           </p>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-800">
-                <th className="text-left px-4 py-3 text-zinc-400 font-medium">Producto</th>
-                <th className="text-left px-4 py-3 text-zinc-400 font-medium">Categoría</th>
-                <th className="text-left px-4 py-3 text-zinc-400 font-medium">Precio</th>
-                <th className="text-left px-4 py-3 text-zinc-400 font-medium">Disponible</th>
+              <tr className="border-b border-trago-border">
+                <th className="text-left px-4 py-3 text-trago-muted font-medium">Producto</th>
+                <th className="text-left px-4 py-3 text-trago-muted font-medium">Categoría</th>
+                <th className="text-left px-4 py-3 text-trago-muted font-medium">Precio</th>
+                <th className="text-left px-4 py-3 text-trago-muted font-medium">Disponible</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {products.map((p) => (
-                <tr key={p.id} className="border-b border-zinc-800/50 last:border-0">
+                <tr key={p.id} className="border-b border-trago-border last:border-0 hover:bg-white/[0.02] transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       {p.image_url && (
@@ -199,10 +200,10 @@ function ProductsTab({
                   <td className="px-4 py-3">
                     <button
                       onClick={() => handleToggleAvailable(p)}
-                      className={`text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
+                      className={`text-xs font-medium px-2.5 py-1 rounded-full transition-colors ${
                         p.available
-                          ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                          : "bg-zinc-700 text-zinc-400 hover:bg-zinc-600"
+                          ? "bg-trago-green/15 text-trago-green hover:bg-trago-green/25"
+                          : "bg-zinc-700/50 text-zinc-400 hover:bg-zinc-600/50"
                       }`}
                     >
                       {p.available ? "Sí" : "No"}
@@ -212,15 +213,15 @@ function ProductsTab({
                     <div className="flex gap-2 justify-end">
                       <button
                         onClick={() => openEdit(p)}
-                        className="text-zinc-400 hover:text-white text-xs transition-colors"
+                        className="text-zinc-400 hover:text-white text-xs transition-colors flex items-center gap-1"
                       >
-                        Editar
+                        <Pencil className="w-3 h-3" /> Editar
                       </button>
                       <button
                         onClick={() => handleDelete(p.id)}
-                        className="text-red-500 hover:text-red-400 text-xs transition-colors"
+                        className="text-red-500 hover:text-red-400 text-xs transition-colors flex items-center gap-1"
                       >
-                        Eliminar
+                        <Trash2 className="w-3 h-3" /> Eliminar
                       </button>
                     </div>
                   </td>
@@ -313,7 +314,7 @@ function ProductForm({
   }
 
   return (
-    <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 mb-4">
+    <div className="bg-trago-card border border-trago-border rounded-xl p-5 mb-4 animate-fade-in">
       <h3 className="text-base font-semibold mb-4">
         {product ? "Editar producto" : "Nuevo producto"}
       </h3>
@@ -325,7 +326,7 @@ function ProductForm({
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             required
-            className="w-full px-3 py-2 bg-zinc-700 border border-zinc-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full px-3 py-2 bg-trago-dark border border-trago-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-trago-orange/30 focus:border-trago-orange/50 transition-all"
           />
         </div>
 
@@ -339,7 +340,7 @@ function ProductForm({
             }
             required
             min={0}
-            className="w-full px-3 py-2 bg-zinc-700 border border-zinc-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full px-3 py-2 bg-trago-dark border border-trago-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-trago-orange/30 focus:border-trago-orange/50 transition-all"
           />
         </div>
 
@@ -350,7 +351,7 @@ function ProductForm({
             onChange={(e) =>
               setForm((f) => ({ ...f, description: e.target.value }))
             }
-            className="w-full px-3 py-2 bg-zinc-700 border border-zinc-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full px-3 py-2 bg-trago-dark border border-trago-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-trago-orange/30 focus:border-trago-orange/50 transition-all"
           />
         </div>
 
@@ -362,7 +363,7 @@ function ProductForm({
               setForm((f) => ({ ...f, category_id: e.target.value }))
             }
             required
-            className="w-full px-3 py-2 bg-zinc-700 border border-zinc-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full px-3 py-2 bg-trago-dark border border-trago-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-trago-orange/30 focus:border-trago-orange/50 transition-all"
           >
             <option value="">Seleccionar…</option>
             {categories.map((c) => (
@@ -381,7 +382,7 @@ function ProductForm({
               onChange={(e) =>
                 setForm((f) => ({ ...f, available: e.target.checked }))
               }
-              className="w-4 h-4 accent-amber-500"
+              className="w-4 h-4 accent-trago-orange"
             />
             <span className="text-sm text-zinc-300">Disponible</span>
           </label>
@@ -402,17 +403,17 @@ function ProductForm({
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              className="px-3 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white text-xs rounded-lg transition-colors"
+              className="px-3 py-2 bg-trago-dark hover:bg-trago-card-hover disabled:opacity-50 text-white text-xs rounded-lg transition-colors border border-trago-border flex items-center gap-1.5"
             >
-              {uploading ? "Subiendo…" : "Subir imagen"}
+              {uploading ? <><Loader2 className="w-3 h-3 animate-spin" /> Subiendo…</> : <><Upload className="w-3 h-3" /> Subir imagen</>}
             </button>
             {form.image_url && (
               <button
                 type="button"
                 onClick={() => setForm((f) => ({ ...f, image_url: null }))}
-                className="text-red-400 text-xs hover:text-red-300"
+                className="text-red-400 text-xs hover:text-red-300 flex items-center gap-1"
               >
-                Quitar
+                <X className="w-3 h-3" /> Quitar
               </button>
             )}
           </div>
@@ -439,7 +440,7 @@ function ProductForm({
           <button
             type="submit"
             disabled={saving}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-semibold text-sm rounded-lg transition-colors"
+            className="px-4 py-2 bg-trago-orange hover:bg-trago-orange-light disabled:opacity-50 text-white font-semibold text-sm rounded-lg transition-colors press-scale"
           >
             {saving ? "Guardando…" : "Guardar"}
           </button>
@@ -501,24 +502,24 @@ function CategoriesTab({
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="Nueva categoría…"
-          className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          className="flex-1 px-3 py-2 bg-trago-card border border-trago-border rounded-lg text-white text-sm placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-trago-orange/30 focus:border-trago-orange/50 transition-all"
         />
         <button
           type="submit"
           disabled={saving || !newName.trim()}
-          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-semibold text-sm rounded-lg transition-colors shrink-0"
+          className="px-4 py-2 bg-trago-orange hover:bg-trago-orange-light disabled:opacity-50 text-white font-semibold text-sm rounded-lg transition-colors shrink-0 press-scale"
         >
           {saving ? "Guardando…" : "Crear"}
         </button>
       </form>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+      <div className="bg-trago-card border border-trago-border rounded-xl overflow-hidden">
         {categories.length === 0 ? (
-          <p className="text-zinc-500 text-sm text-center py-12">
+          <p className="text-trago-muted text-sm text-center py-12">
             No hay categorías. Crea la primera.
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-800">
+          <ul className="divide-y divide-trago-border">
             {categories.map((c) => (
               <li key={c.id} className="flex items-center gap-3 px-4 py-3">
                 {editId === c.id ? (
@@ -526,12 +527,12 @@ function CategoriesTab({
                     <input
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      className="flex-1 px-2 py-1 bg-zinc-700 border border-zinc-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="flex-1 px-2 py-1 bg-trago-dark border border-trago-border rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-trago-orange/30"
                       autoFocus
                     />
                     <button
                       onClick={() => handleUpdate(c.id)}
-                      className="text-amber-400 hover:text-amber-300 text-xs font-medium"
+                      className="text-trago-orange hover:text-trago-orange-light text-xs font-medium"
                     >
                       Guardar
                     </button>

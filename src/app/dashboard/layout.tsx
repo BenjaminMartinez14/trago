@@ -23,7 +23,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex">
+    <div className="min-h-screen bg-trago-black text-white flex">
       <DashboardNav email={user.email ?? ""} />
       <main className="flex-1 ml-56 p-8">{children}</main>
     </div>

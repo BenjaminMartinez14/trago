@@ -15,10 +15,11 @@ export default function CategoryNav({ categories, selectedId, onSelect }: Catego
         <button
           onClick={() => onSelect(null)}
           className={[
-            "flex-shrink-0 h-10 px-5 rounded-full text-sm font-semibold transition-colors duration-150 touch-manipulation",
+            "flex-shrink-0 h-10 px-5 rounded-full text-sm font-semibold",
+            "transition-all duration-200 touch-manipulation press-scale",
             selectedId === null
-              ? "bg-white text-black"
-              : "bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800",
+              ? "bg-trago-orange text-white glow-orange-sm"
+              : "bg-trago-card text-zinc-400 hover:text-white hover:bg-trago-card-hover border border-trago-border",
           ].join(" ")}
         >
           Todo
@@ -29,10 +30,11 @@ export default function CategoryNav({ categories, selectedId, onSelect }: Catego
             key={cat.id}
             onClick={() => onSelect(cat.id)}
             className={[
-              "flex-shrink-0 h-10 px-5 rounded-full text-sm font-semibold transition-colors duration-150 touch-manipulation",
+              "flex-shrink-0 h-10 px-5 rounded-full text-sm font-semibold",
+              "transition-all duration-200 touch-manipulation press-scale",
               selectedId === cat.id
-                ? "bg-white text-black"
-                : "bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800",
+                ? "bg-trago-orange text-white glow-orange-sm"
+                : "bg-trago-card text-zinc-400 hover:text-white hover:bg-trago-card-hover border border-trago-border",
             ].join(" ")}
           >
             {cat.name}
