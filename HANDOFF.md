@@ -19,25 +19,73 @@
 | 4 — Staff scanner | 4.1 Scanner | ✅ Done |
 | 5 — Admin dashboard | 5.1 Admin dashboard | ✅ Done |
 
+**All code is complete. Focus is now on infrastructure, deployment, and MP configuration.**
+
 ---
 
-## All prompts complete — MVP done ✅
+## Deployment state
 
-All 5 phases / 9 prompts are complete. The build is feature-complete per spec.
+- **Repo:** https://github.com/BenjaminMartinez14/trago
+- **Vercel project:** `benjaminmartinez14s-projects/trago`
+- **Production URL:** https://trago-benjaminmartinez14s-projects.vercel.app
+- **Supabase project:** `mdjyubpurjhgnunxgunt` → https://mdjyubpurjhgnunxgunt.supabase.co
+- **Migrations:** All 3 run (schema + RLS + seed data)
+- **PWA:** Fixed — switched from `next-pwa` to `@ducanh2912/next-pwa` (Next.js 14 compatibility)
 
-### What was built in 5.1
-- `src/middleware.ts` — auth guard for `/dashboard/*`
-- `src/app/dashboard/login/page.tsx` — Supabase Auth email+password login
-- `src/app/dashboard/layout.tsx` — server auth check + sidebar nav
-- `src/app/dashboard/DashboardNav.tsx` — sidebar with sign-out
-- `src/app/dashboard/page.tsx` — stats cards + QR generator with download
-- `src/app/dashboard/orders/page.tsx` — live orders table with Realtime
-- `src/app/dashboard/menu/page.tsx` — full CRUD for products + categories, image upload to Storage
-- `src/app/api/dashboard/stats/route.ts` — today's revenue, order count, top 3 products
-- `src/app/api/dashboard/products/route.ts` — GET + POST
-- `src/app/api/dashboard/products/[id]/route.ts` — PATCH + DELETE
-- `src/app/api/dashboard/categories/route.ts` — GET + POST
-- `src/app/api/dashboard/categories/[id]/route.ts` — PATCH + DELETE
+---
+
+## Environment variables
+
+All set in Vercel production + `.env.local`:
+
+| Variable | Status | Value |
+|----------|--------|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ Set | see .env.local |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ Set | see .env.local |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ Set | see .env.local |
+| `NEXT_PUBLIC_MP_PUBLIC_KEY` | ✅ Set | TEST key — see .env.local |
+| `MP_ACCESS_TOKEN` | ✅ Set | TEST key — see .env.local |
+| `MP_WEBHOOK_SECRET` | ✅ Set | see .env.local |
+| `STAFF_JWT_SECRET` | ✅ Set | see .env.local |
+| `NEXT_PUBLIC_BASE_URL` | ✅ Set | `https://trago-benjaminmartinez14s-projects.vercel.app` |
+
+---
+
+## What still needs to be done
+
+### 1. Verify production URL is correct
+The URL `https://trago-benjaminmartinez14s-projects.vercel.app` was inferred — the user showed a preview URL `trago-75sfpvdzi-benjaminmartinez14s-projects.vercel.app`. Confirm the canonical production URL and update `NEXT_PUBLIC_BASE_URL` on Vercel if different:
+```
+echo "https://correct-url.vercel.app" | vercel env add NEXT_PUBLIC_BASE_URL production --force
+```
+
+### 2. Register MP webhook
+In the MP developer dashboard, the webhook URL `https://trago-benjaminmartinez14s-projects.vercel.app/api/webhooks/mp` needs to be registered for **Payment** events. The `MP_WEBHOOK_SECRET` is already set in Vercel — it must match what MP shows in the dashboard.
+
+### 3. Update venue mp_access_token in DB
+The seed data has a placeholder. Run in Supabase SQL editor:
+```sql
+UPDATE venues
+SET mp_access_token = '<MP_ACCESS_TOKEN from .env.local>'
+WHERE slug = 'club-demo';
+```
+
+### 4. Create Supabase Auth admin user
+No one can log into `/dashboard` yet. Go to:
+Supabase Dashboard → Authentication → Users → Add user (email + password)
+
+### 5. Create Supabase Storage bucket
+Image upload in the menu manager needs a public bucket named `product-images`.
+Supabase Dashboard → Storage → New bucket → name: `product-images` → Public: ON
+
+---
+
+## Seed data (for testing)
+
+- Venue: `club-demo` (slug), `a1b2c3d4-0000-0000-0000-000000000001` (id)
+- Admin staff PIN: `1234`
+- Scanner staff PIN: `0000`
+- MP test card: `5031 7557 3453 0604`, any future expiry, CVV `123`, name `APRO`
 
 ---
 
@@ -45,27 +93,31 @@ All 5 phases / 9 prompts are complete. The build is feature-complete per spec.
 
 ### TypeScript / Supabase types
 - `@supabase/supabase-js` v2.99.3 uses PostgREST v12 — `.insert()` and `.update()` return `never` with hand-authored types.
-- **Fix applied:** Cast `supabase` as `any` for mutating operations in server routes. Reads (`.select()`) work fine with typed client.
-- `.env.local.example` has `NEXT_PUBLIC_MP_PUBLIC_KEY` — needed for Wallet Brick `initMercadoPago()`.
-- Types file is at `src/lib/supabase/types.ts` — replace with `supabase gen types` when project is linked.
+- **Fix applied:** Cast `supabase` as `any` for mutating operations in server routes.
+- Types file: `src/lib/supabase/types.ts`
+
+### Supabase key format
+- New Supabase key format: `sb_publishable_...` = anon key, `sb_secret_...` = service role key
+- Code uses env var names `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`
 
 ### Cart + session
-- `CartProvider` generates a UUID `sessionId` in `sessionStorage` on first load (`SESSION_ID_KEY = 'trago_session_id'`).
-- `sessionId` passed as `x-session-id` header and in the POST body to `/api/orders`.
+- `CartProvider` generates UUID `sessionId` in `sessionStorage` (`SESSION_ID_KEY = 'trago_session_id'`)
+- Passed as `x-session-id` header to `/api/orders`
 
 ### Mercado Pago
-- `@mercadopago/sdk-react` Wallet component has wrong TypeScript types for `initialization.preferenceId`. Worked around with `const W = Wallet as any`.
-- `initMercadoPago(NEXT_PUBLIC_MP_PUBLIC_KEY)` called at module level in `checkout/page.tsx`.
+- `@mercadopago/sdk-react` Wallet Brick: workaround `const W = Wallet as any`
+- `initMercadoPago()` called at module level in `checkout/page.tsx`
+- Webhook: HMAC-SHA256 signature validation (`ts=...,v1=...` format)
 
 ### Staff auth
-- PIN stored as bcrypt hash in `staff_users.pin_hash` (seeded via `003_seed_data.sql` with pgcrypto).
-- Staff JWT signed with `STAFF_JWT_SECRET` (HS256, 12h expiry) via `jose`.
-- JWT payload: `{ sub: staffId, venueId, role, name }`.
-- Stored in `localStorage` as `trago_staff_session`.
+- PIN stored as bcrypt hash in `staff_users.pin_hash`
+- Staff JWT: HS256, 12h expiry, via `jose`
+- Stored in `localStorage` as `trago_staff_session`
 
-### Workbox / PWA
-- SW disabled in development (`NODE_ENV === 'development'`).
-- `runtimeCaching` configured in `next.config.mjs` — see spec section 9 for strategies.
+### PWA
+- Switched from `next-pwa` to `@ducanh2912/next-pwa` for Next.js 14 compatibility
+- SW disabled in development
+- `runtimeCaching` moved inside `workboxOptions`
 
 ---
 
@@ -77,51 +129,39 @@ src/
     [venue]/
       layout.tsx              ← wraps CartProvider
       page.tsx                ← menu (server component)
-      not-found.tsx
       cart/page.tsx           ← cart page (client)
       checkout/page.tsx       ← checkout + Wallet Brick (client)
       order/[id]/page.tsx     ← confirmation + QR (client)
     dashboard/
-      layout.tsx              ← ⬜ auth guard + sidebar
-      login/page.tsx          ← ⬜ login form
-      page.tsx                ← ⬜ stats + QR generator
-      menu/page.tsx           ← ⬜ menu CRUD
-      orders/page.tsx         ← ⬜ live orders
+      layout.tsx              ← server auth check + sidebar
+      login/page.tsx          ← Supabase Auth login
+      DashboardNav.tsx        ← sidebar nav with sign-out
+      page.tsx                ← stats + QR generator
+      menu/page.tsx           ← full CRUD products + categories + image upload
+      orders/page.tsx         ← live orders table with Realtime
     staff/
-      scan/page.tsx           ← ✅ done
+      scan/page.tsx           ← staff scanner (login + QR + deliver)
     api/
-      orders/route.ts         ← POST create order + MP preference
-      orders/[id]/status/route.ts  ← GET polling endpoint
-      webhooks/mp/route.ts    ← POST MP webhook
-      staff/
-        login/route.ts        ← ✅ done
-        orders/[id]/route.ts  ← ✅ done
-        orders/[id]/deliver/route.ts  ← ✅ done
-      dashboard/              ← ⬜ stats, products, categories
-  components/
-    menu/
-      CartProvider.tsx        ← cart context + sessionId
-      CartItemRow.tsx
-      CategoryNav.tsx
-      MenuClient.tsx          ← floating cart bar
-      ProductCard.tsx
-    ui/
-      Button.tsx
-      LoadingSpinner.tsx
+      orders/route.ts
+      orders/[id]/status/route.ts
+      webhooks/mp/route.ts
+      staff/login/route.ts
+      staff/orders/[id]/route.ts
+      staff/orders/[id]/deliver/route.ts
+      dashboard/stats/route.ts
+      dashboard/products/route.ts
+      dashboard/products/[id]/route.ts
+      dashboard/categories/route.ts
+      dashboard/categories/[id]/route.ts
   lib/
     supabase/client.ts
-    supabase/server.ts        ← createClient() + createServiceClient()
-    supabase/types.ts         ← hand-authored (replace with gen types)
+    supabase/server.ts
+    supabase/types.ts
     mercadopago.ts
-    staff-auth.ts             ← ✅ done
-    errors.ts
-    constants.ts
+    staff-auth.ts
     format.ts                 ← formatCLP()
-  hooks/
-    useCart.ts
-    useOrderStatus.ts         ← Realtime + polling hybrid
-    useOnlineStatus.ts
-  middleware.ts               ← ⬜ dashboard auth guard
+    constants.ts
+  middleware.ts               ← dashboard auth guard
 supabase/
   migrations/
     001_initial_schema.sql
@@ -131,12 +171,4 @@ supabase/
 
 ---
 
-## Seed data (for local testing)
-
-- Venue: `club-demo` (slug), `a1b2c3d4-0000-0000-0000-000000000001` (id)
-- Admin staff: PIN `1234`
-- Scanner staff: PIN `0000`
-
----
-
-*Last updated: Prompt 4.1 complete. Next: Prompt 5.1 — Admin dashboard.*
+*Last updated: All code done. Deploying + configuring MP. Resume at "What still needs to be done" above.*
