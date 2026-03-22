@@ -27,7 +27,8 @@
 
 - **Repo:** https://github.com/BenjaminMartinez14/trago
 - **Vercel project:** `benjaminmartinez14s-projects/trago`
-- **Production URL:** https://trago-benjaminmartinez14s-projects.vercel.app
+- **Production URL (stable alias):** https://trago-app.vercel.app
+- **Latest deployment:** https://trago-h8b51jru1-benjaminmartinez14s-projects.vercel.app
 - **Supabase project:** `mdjyubpurjhgnunxgunt` → https://mdjyubpurjhgnunxgunt.supabase.co
 - **Migrations:** All 3 run (schema + RLS + seed data)
 - **PWA:** Fixed — switched from `next-pwa` to `@ducanh2912/next-pwa` (Next.js 14 compatibility)
@@ -47,20 +48,23 @@ All set in Vercel production + `.env.local`:
 | `MP_ACCESS_TOKEN` | ✅ Set | TEST key — see .env.local |
 | `MP_WEBHOOK_SECRET` | ✅ Set | see .env.local |
 | `STAFF_JWT_SECRET` | ✅ Set | see .env.local |
-| `NEXT_PUBLIC_BASE_URL` | ✅ Set | `https://trago-benjaminmartinez14s-projects.vercel.app` |
+| `NEXT_PUBLIC_BASE_URL` | ⚠️ Needs update | currently wrong — must be updated to `https://trago-app.vercel.app` |
 
 ---
 
 ## What still needs to be done
 
-### 1. Verify production URL is correct
-The URL `https://trago-benjaminmartinez14s-projects.vercel.app` was inferred — the user showed a preview URL `trago-75sfpvdzi-benjaminmartinez14s-projects.vercel.app`. Confirm the canonical production URL and update `NEXT_PUBLIC_BASE_URL` on Vercel if different:
+### 1. Update NEXT_PUBLIC_BASE_URL on Vercel ← DO THIS FIRST
+Stable alias `https://trago-app.vercel.app` was created. Update the env var:
 ```
-echo "https://correct-url.vercel.app" | vercel env add NEXT_PUBLIC_BASE_URL production --force
+echo "https://trago-app.vercel.app" | vercel env add NEXT_PUBLIC_BASE_URL production --force
 ```
+Then trigger redeploy: `git commit --allow-empty -m "chore: redeploy" && git push origin main`
 
 ### 2. Register MP webhook
-In the MP developer dashboard, the webhook URL `https://trago-benjaminmartinez14s-projects.vercel.app/api/webhooks/mp` needs to be registered for **Payment** events. The `MP_WEBHOOK_SECRET` is already set in Vercel — it must match what MP shows in the dashboard.
+In the MP developer dashboard, register webhook URL for **Payment** events:
+`https://trago-app.vercel.app/api/webhooks/mp`
+The `MP_WEBHOOK_SECRET` is already set in Vercel — it must match what MP shows in the dashboard.
 
 ### 3. Update venue mp_access_token in DB
 The seed data has a placeholder. Run in Supabase SQL editor:
@@ -171,4 +175,4 @@ supabase/
 
 ---
 
-*Last updated: All code done. Deploying + configuring MP. Resume at "What still needs to be done" above.*
+*Last updated: Stable alias trago-app.vercel.app created. Resume at item 1 above.*
