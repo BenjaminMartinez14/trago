@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
@@ -107,7 +107,6 @@ export default async function MenuPage({ params, searchParams }: Props) {
 
   // If only one station, redirect directly to it
   if (stations.length === 1) {
-    const { redirect } = await import("next/navigation");
     redirect(`/${params.venue}?s=${stations[0].slug}`);
   }
 
