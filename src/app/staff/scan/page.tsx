@@ -251,6 +251,7 @@ export default function StaffScanPage() {
             data={state.data}
             error={state.phase === "order" ? state.error : undefined}
             transitioning={state.phase === "transitioning"}
+            scannerMode={state.returnTo === "scanner"}
             onTransition={handleTransition}
             onBack={() => setState({ phase: state.returnTo })}
           />

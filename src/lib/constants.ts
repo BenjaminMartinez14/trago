@@ -31,11 +31,14 @@ export const SW_CACHE_STRATEGIES = {
 
 export const SESSION_ID_KEY = "trago_session_id";
 
+// Queue actions — paid and preparing only. Delivery is done via QR scan.
 export const STAFF_STATUS_TRANSITIONS: Record<
   string,
   { action: string; next: OrderStatus; label: string; color: string }
 > = {
   paid: { action: "accept", next: "preparing", label: "Aceptar pedido", color: "bg-trago-orange" },
   preparing: { action: "mark_ready", next: "ready", label: "Marcar listo", color: "bg-yellow-500" },
-  ready: { action: "deliver", next: "delivered", label: "Entregar", color: "bg-trago-green" },
 };
+
+// Scanner delivery action — only triggered after QR confirmation
+export const SCANNER_DELIVER = { action: "deliver", next: "delivered" as OrderStatus, label: "Confirmar entrega", color: "bg-trago-green" };

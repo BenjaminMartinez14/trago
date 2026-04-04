@@ -2,7 +2,7 @@
 
 import { ArrowLeft } from "lucide-react";
 import { formatCLP } from "@/lib/format";
-import { ORDER_STATUS_LABELS, STAFF_STATUS_TRANSITIONS } from "@/lib/constants";
+import { ORDER_STATUS_LABELS, STAFF_STATUS_TRANSITIONS, SCANNER_DELIVER } from "@/lib/constants";
 import type { Order, OrderItem, OrderStatus } from "@/lib/supabase/types";
 
 type ScannedOrder = {
@@ -14,17 +14,22 @@ export default function OrderView({
   data,
   error,
   transitioning,
+  scannerMode,
   onTransition,
   onBack,
 }: {
   data: ScannedOrder;
   error?: string;
   transitioning?: boolean;
+  scannerMode?: boolean;
   onTransition: (orderId: string, action: string) => void;
   onBack: () => void;
 }) {
   const { order, items } = data;
-  const transition = STAFF_STATUS_TRANSITIONS[order.status];
+  // In scanner mode: if order is ready, deliver; otherwise use normal queue transitions
+  const transition = scannerMode && order.status === "ready"
+    ? SCANNER_DELIVER
+    : STAFF_STATUS_TRANSITIONS[order.status];
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -85,7 +90,13 @@ export default function OrderView({
         {error && (
           <p className="text-red-400 text-sm text-center mb-3">{error}</p>
         )}
-        {transition ? (
+        {scannerMode && order.status !== "ready" && order.status !== "delivered" ? (
+          <div className="w-full h-14 bg-trago-card rounded-2xl flex items-center justify-center border border-yellow-500/30">
+            <p className="text-yellow-400 text-sm font-medium">
+              Pedido aún no está listo ({ORDER_STATUS_LABELS[order.status as OrderStatus]})
+            </p>
+          </div>
+        ) : transition ? (
           <button
             onClick={() => onTransition(order.id, transition.action)}
             disabled={transitioning}
