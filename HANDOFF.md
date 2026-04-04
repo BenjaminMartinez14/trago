@@ -28,6 +28,27 @@
 | — | Supabase Storage bucket (product-images) | ✅ Done |
 | — | Supabase Auth admin user | ✅ Done |
 | — | Mercado Pago Wallet Brick rendering | ✅ Fixed |
+| — | Venue stations (zones) | 🔧 In progress |
+
+### Active work: Venue Stations
+
+**Goal:** Different zones within a venue (e.g., "Barra VIP", "Terraza") each with their own QR and filtered product menu.
+
+**Done:**
+- Migration `005_stations.sql` — `stations` + `station_products` tables + `qr_codes.station_id` column
+- Types updated in `src/lib/supabase/types.ts`
+- API routes: `api/dashboard/stations/` (CRUD) + `api/dashboard/stations/[id]/products/` (GET + PUT)
+
+**Still needed:**
+1. **Run migration** `005_stations.sql` in Supabase SQL editor
+2. **Dashboard stations page** (`src/app/dashboard/stations/page.tsx`) — CRUD stations, assign products per station
+3. **Dashboard nav** — add "Estaciones" link to `src/app/dashboard/DashboardNav.tsx`
+4. **QR generator update** — pick from stations dropdown instead of raw slug input, URL = `/{venue}?s={station-slug}`
+5. **Menu page** (`src/app/[venue]/page.tsx`) — if `?s=` param: filter products via `station_products` join; if no `?s=`: show station picker
+
+**URL format:** `trago-app.vercel.app/club-demo?s=barra-vip`
+
+**Plan file:** `~/.claude/plans/crystalline-sprouting-catmull.md`
 
 ---
 
