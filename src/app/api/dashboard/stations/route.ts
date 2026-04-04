@@ -49,5 +49,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "DB_ERROR" }, { status: 500 });
   }
 
+  // Auto-create a QR code linked to this station
+  await (service as any)
+    .from("qr_codes")
+    .insert({ venue_id: data.venue_id, station_id: data.id, label: data.name });
+
   return NextResponse.json({ station: data }, { status: 201 });
 }
