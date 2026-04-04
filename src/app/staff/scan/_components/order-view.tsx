@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { ArrowLeft, ScanLine, X, Camera } from "lucide-react";
 import { formatCLP } from "@/lib/format";
-import { ORDER_STATUS_LABELS, STAFF_STATUS_TRANSITIONS, SCANNER_DELIVER } from "@/lib/constants";
+import { ORDER_STATUS_LABELS, STAFF_STATUS_TRANSITIONS } from "@/lib/constants";
 import type { Order, OrderItem, OrderStatus } from "@/lib/supabase/types";
 
 type ScannedOrder = {
@@ -10,26 +11,114 @@ type ScannedOrder = {
   items: OrderItem[];
 };
 
+// ── Inline QR scanner ────────────────────────────────────────────────────────
+
+function InlineScanner({
+  expectedId,
+  onMatch,
+  onMismatch,
+  onCancel,
+}: {
+  expectedId: string;
+  onMatch: () => void;
+  onMismatch: () => void;
+  onCancel: () => void;
+}) {
+  const scannerRef = useRef<InstanceType<typeof import("html5-qrcode").Html5Qrcode> | null>(null);
+  const [cameraError, setCameraError] = useState(false);
+  const handled = useRef(false);
+
+  const handleScan = useCallback(
+    (text: string) => {
+      if (handled.current) return;
+      handled.current = true;
+      if (text.trim() === expectedId) {
+        onMatch();
+      } else {
+        onMismatch();
+      }
+    },
+    [expectedId, onMatch, onMismatch]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let mounted = true;
+
+    async function start() {
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        const scanner = new Html5Qrcode("inline-qr-reader");
+        scannerRef.current = scanner;
+        await scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          (text) => { if (mounted) handleScan(text); },
+          undefined
+        );
+      } catch {
+        if (mounted) setCameraError(true);
+      }
+    }
+
+    start();
+
+    return () => {
+      mounted = false;
+      scannerRef.current?.stop().catch(() => {}).finally(() => scannerRef.current?.clear());
+    };
+  }, [handleScan]);
+
+  if (cameraError) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-6 text-center">
+        <Camera className="w-8 h-8 text-trago-muted" />
+        <p className="text-white text-sm font-medium">Sin acceso a la cámara</p>
+        <button onClick={onCancel} className="text-zinc-400 text-sm underline">Cancelar</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <p className="text-trago-muted text-sm">Apunta al QR del cliente</p>
+      <div
+        id="inline-qr-reader"
+        className="w-full rounded-2xl overflow-hidden bg-trago-card border border-trago-border"
+        style={{ minHeight: 260 }}
+      />
+      <button
+        onClick={onCancel}
+        className="flex items-center gap-1.5 text-zinc-400 text-sm hover:text-white transition-colors"
+      >
+        <X className="w-4 h-4" /> Cancelar escaneo
+      </button>
+    </div>
+  );
+}
+
+// ── Order view ────────────────────────────────────────────────────────────────
+
 export default function OrderView({
   data,
   error,
   transitioning,
-  scannerMode,
   onTransition,
   onBack,
 }: {
   data: ScannedOrder;
   error?: string;
   transitioning?: boolean;
-  scannerMode?: boolean;
   onTransition: (orderId: string, action: string) => void;
   onBack: () => void;
 }) {
   const { order, items } = data;
-  // In scanner mode: if order is ready, deliver; otherwise use normal queue transitions
-  const transition = scannerMode && order.status === "ready"
-    ? SCANNER_DELIVER
-    : STAFF_STATUS_TRANSITIONS[order.status];
+  const transition = STAFF_STATUS_TRANSITIONS[order.status];
+
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState("");
+
+  const isReady = order.status === "ready";
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -83,19 +172,47 @@ export default function OrderView({
           <span className="text-zinc-400">Total</span>
           <span className="text-white font-bold tabular-nums">{formatCLP(order.total_clp)}</span>
         </div>
+
+        {/* Inline scanner — only when ready */}
+        {isReady && scanning && (
+          <div className="mt-2">
+            <InlineScanner
+              expectedId={order.id}
+              onMatch={() => {
+                setScanning(false);
+                setScanError("");
+                onTransition(order.id, "deliver");
+              }}
+              onMismatch={() => {
+                setScanning(false);
+                setScanError("El QR no corresponde a este pedido");
+              }}
+              onCancel={() => {
+                setScanning(false);
+                setScanError("");
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Action button */}
-      <div className="px-4 pb-8 pt-2 flex-shrink-0">
-        {error && (
-          <p className="text-red-400 text-sm text-center mb-3">{error}</p>
+      <div className="px-4 pb-8 pt-2 flex-shrink-0 space-y-2">
+        {(error || scanError) && (
+          <p className="text-red-400 text-sm text-center">{error || scanError}</p>
         )}
-        {scannerMode && order.status !== "ready" && order.status !== "delivered" ? (
-          <div className="w-full h-14 bg-trago-card rounded-2xl flex items-center justify-center border border-yellow-500/30">
-            <p className="text-yellow-400 text-sm font-medium">
-              Pedido aún no está listo ({ORDER_STATUS_LABELS[order.status as OrderStatus]})
-            </p>
-          </div>
+
+        {isReady ? (
+          !scanning && (
+            <button
+              onClick={() => { setScanError(""); setScanning(true); }}
+              disabled={transitioning}
+              className="w-full h-16 bg-trago-green text-white font-bold text-lg rounded-2xl touch-manipulation press-scale disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <ScanLine className="w-5 h-5" />
+              Escanear QR para entregar
+            </button>
+          )
         ) : transition ? (
           <button
             onClick={() => onTransition(order.id, transition.action)}
@@ -107,7 +224,7 @@ export default function OrderView({
         ) : (
           <div className="w-full h-14 bg-trago-card rounded-2xl flex items-center justify-center border border-trago-border">
             <p className="text-trago-muted text-sm">
-              Estado: {ORDER_STATUS_LABELS[order.status as OrderStatus]}
+              {ORDER_STATUS_LABELS[order.status as OrderStatus]}
             </p>
           </div>
         )}

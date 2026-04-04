@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle2, AlertTriangle, Loader2, List, ScanLine } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { formatCLP } from "@/lib/format";
 import LoginView from "./_components/login-view";
 import ScannerView from "./_components/scanner-view";
@@ -26,11 +26,10 @@ type ScannedOrder = {
 type PageState =
   | { phase: "login" }
   | { phase: "queue" }
-  | { phase: "scanner" }
   | { phase: "loading_order" }
-  | { phase: "order"; data: ScannedOrder; returnTo: "queue" | "scanner"; error?: string }
-  | { phase: "transitioning"; data: ScannedOrder; returnTo: "queue" | "scanner" }
-  | { phase: "done"; orderNumber: number; returnTo: "queue" | "scanner" }
+  | { phase: "order"; data: ScannedOrder; error?: string }
+  | { phase: "transitioning"; data: ScannedOrder }
+  | { phase: "done"; orderNumber: number }
   | { phase: "scan_error"; message: string };
 
 const STAFF_SESSION_KEY = "trago_staff_session";
@@ -52,8 +51,6 @@ export default function StaffScanPage() {
   const [session, setSession] = useState<StaffSession | null>(null);
   const [state, setState] = useState<PageState>({ phase: "login" });
 
-  // Track active tab for badge / return
-  const activeTab = state.phase === "scanner" ? "scanner" : "queue";
 
   // Load saved session on mount (with JWT expiry check)
   useEffect(() => {
@@ -86,7 +83,7 @@ export default function StaffScanPage() {
     setState({ phase: "login" });
   }
 
-  async function handleOpenOrder(orderId: string, returnTo: "queue" | "scanner" = "queue") {
+  async function handleOpenOrder(orderId: string) {
     if (!session) return;
     setState({ phase: "loading_order" });
 
@@ -111,7 +108,7 @@ export default function StaffScanPage() {
       const data = (await res.json()) as ScannedOrder;
 
       if (data.order.status === "delivered") {
-        setState({ phase: "scan_error", message: "Este pedido ya fue entregado" });
+        setState({ phase: "scan_error", message: "Entregado" });
         return;
       }
       if (data.order.status === "cancelled") {
@@ -119,7 +116,7 @@ export default function StaffScanPage() {
         return;
       }
 
-      setState({ phase: "order", data, returnTo });
+      setState({ phase: "order", data });
     } catch {
       setState({ phase: "scan_error", message: "Error de conexión" });
     }
@@ -127,37 +124,28 @@ export default function StaffScanPage() {
 
   async function handleTransition(orderId: string, action: string) {
     if (!session || state.phase !== "order") return;
-    const { data, returnTo } = state;
-    setState({ phase: "transitioning", data, returnTo });
+    const { data } = state;
+    setState({ phase: "transitioning", data });
 
     const res = await fetch(`/api/staff/orders/${orderId}/transition`, {
       method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${session.token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${session.token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
 
     if (res.ok) {
       const { newStatus } = await res.json();
       if (newStatus === "delivered") {
-        setState({ phase: "done", orderNumber: data.order.order_number, returnTo });
-        setTimeout(() => setState({ phase: returnTo }), 2000);
+        setState({ phase: "done", orderNumber: data.order.order_number });
+        setTimeout(() => setState({ phase: "queue" }), 2000);
       } else {
-        // Status advanced — go back to the return view
-        setState({ phase: returnTo });
+        setState({ phase: "queue" });
       }
     } else {
       const body = await res.json().catch(() => ({}));
       setState({
-        phase: "order",
-        data,
-        returnTo,
-        error:
-          body.error === "INVALID_TRANSITION"
-            ? `Estado ya cambió a "${body.currentStatus}"`
-            : "Error al actualizar",
+        phase: "order", data,
+        error: body.error === "INVALID_TRANSITION" ? `Estado ya cambió a "${body.currentStatus}"` : "Error al actualizar",
       });
     }
   }
@@ -184,31 +172,6 @@ export default function StaffScanPage() {
         </button>
       </header>
 
-      {/* Tab bar */}
-      <div className="flex border-b border-trago-border flex-shrink-0">
-        <button
-          onClick={() => setState({ phase: "queue" })}
-          className={`flex-1 h-12 flex items-center justify-center gap-2 text-sm font-medium touch-manipulation transition-colors ${
-            activeTab === "queue"
-              ? "text-trago-orange border-b-2 border-trago-orange"
-              : "text-zinc-500"
-          }`}
-        >
-          <List className="w-4 h-4" />
-          Cola
-        </button>
-        <button
-          onClick={() => setState({ phase: "scanner" })}
-          className={`flex-1 h-12 flex items-center justify-center gap-2 text-sm font-medium touch-manipulation transition-colors ${
-            activeTab === "scanner"
-              ? "text-trago-orange border-b-2 border-trago-orange"
-              : "text-zinc-500"
-          }`}
-        >
-          <ScanLine className="w-4 h-4" />
-          Escanear
-        </button>
-      </div>
 
       {/* Body */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -216,12 +179,8 @@ export default function StaffScanPage() {
           <OrderQueue
             token={session.token}
             venueId={session.venueId}
-            onOpenOrder={(id) => handleOpenOrder(id, "queue")}
+            onOpenOrder={(id) => handleOpenOrder(id)}
           />
-        )}
-
-        {state.phase === "scanner" && (
-          <ScannerView onScan={(id) => handleOpenOrder(id, "scanner")} />
         )}
 
         {state.phase === "loading_order" && (
@@ -251,9 +210,8 @@ export default function StaffScanPage() {
             data={state.data}
             error={state.phase === "order" ? state.error : undefined}
             transitioning={state.phase === "transitioning"}
-            scannerMode={state.returnTo === "scanner"}
             onTransition={handleTransition}
-            onBack={() => setState({ phase: state.returnTo })}
+            onBack={() => setState({ phase: "queue" })}
           />
         )}
 
