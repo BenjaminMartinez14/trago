@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import MenuClient from "@/components/menu/MenuClient";
 import type { Category, Product, Venue, Station } from "@/lib/supabase/types";
 
@@ -11,7 +11,7 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createClient();
+  const supabase = createServiceClient();
   const { data } = await supabase
     .from("venues")
     .select("name")
@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function MenuPage({ params, searchParams }: Props) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   const { data: venueRaw } = await supabase
     .from("venues")
@@ -53,7 +53,6 @@ export default async function MenuPage({ params, searchParams }: Props) {
     const station = stationRaw as Pick<Station, "id" | "name" | "slug"> | null;
     if (!station) notFound();
 
-    // Get product IDs assigned to this station
     const { data: spRows } = await supabase
       .from("station_products")
       .select("product_id")
@@ -79,7 +78,6 @@ export default async function MenuPage({ params, searchParams }: Props) {
     const allProducts = (productsRes.data ?? []) as Product[];
     const stationProducts = allProducts.filter((p) => assignedProductIds.has(p.id));
 
-    // Only include categories that have at least one assigned product
     const categoryIdsWithProducts = new Set(stationProducts.map((p) => p.category_id));
     const categories = ((categoriesRes.data ?? []) as Category[]).filter(
       (c) => categoryIdsWithProducts.has(c.id)
@@ -105,12 +103,10 @@ export default async function MenuPage({ params, searchParams }: Props) {
 
   const stations = (stationsRaw ?? []) as Pick<Station, "id" | "name" | "slug">[];
 
-  // If only one station, redirect directly to it
   if (stations.length === 1) {
     redirect(`/${params.venue}?s=${stations[0].slug}`);
   }
 
-  // If no stations at all, show full menu (legacy behaviour)
   if (stations.length === 0) {
     const [categoriesRes, productsRes] = await Promise.all([
       supabase
@@ -135,7 +131,6 @@ export default async function MenuPage({ params, searchParams }: Props) {
     );
   }
 
-  // Multiple stations — show picker
   return (
     <div className="min-h-screen bg-trago-black flex flex-col items-center justify-start px-4 pt-16 pb-8">
       {venue.logo_url && (
