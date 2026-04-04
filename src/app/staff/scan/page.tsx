@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, Bell, Camera, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect } from "react";
+import { CheckCircle2, AlertTriangle, Loader2, List, ScanLine } from "lucide-react";
 import { formatCLP } from "@/lib/format";
-import { ORDER_STATUS_LABELS } from "@/lib/constants";
-import type { Order, OrderItem, OrderStatus } from "@/lib/supabase/types";
+import LoginView from "./_components/login-view";
+import ScannerView from "./_components/scanner-view";
+import OrderView from "./_components/order-view";
+import OrderQueue from "./_components/order-queue";
+import type { Order, OrderItem } from "@/lib/supabase/types";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,125 +23,71 @@ type ScannedOrder = {
   items: OrderItem[];
 };
 
-type NewOrderAlert = {
-  id: string;
-  orderNumber: number;
-  totalCLP: number;
-  seenAt: number;
-};
-
 type PageState =
   | { phase: "login" }
-  | { phase: "scanning" }
+  | { phase: "queue" }
+  | { phase: "scanner" }
   | { phase: "loading_order" }
-  | { phase: "order"; data: ScannedOrder; error?: string }
-  | { phase: "delivering" }
-  | { phase: "done"; orderNumber: number }
+  | { phase: "order"; data: ScannedOrder; returnTo: "queue" | "scanner"; error?: string }
+  | { phase: "transitioning"; data: ScannedOrder; returnTo: "queue" | "scanner" }
+  | { phase: "done"; orderNumber: number; returnTo: "queue" | "scanner" }
   | { phase: "scan_error"; message: string };
 
 const STAFF_SESSION_KEY = "trago_staff_session";
-const PIN_LENGTH = 4;
 
-// ── Sound alert ───────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-function playBeep() {
+function isTokenExpired(token: string): boolean {
   try {
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.exp * 1000 < Date.now();
   } catch {
-    // AudioContext blocked — ignore
+    return true;
   }
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Main page ────────────────────────────────────────────────────────────────
 
 export default function StaffScanPage() {
   const [session, setSession] = useState<StaffSession | null>(null);
   const [state, setState] = useState<PageState>({ phase: "login" });
-  const [newOrders, setNewOrders] = useState<NewOrderAlert[]>([]);
 
-  // Load saved session on mount
+  // Track active tab for badge / return
+  const activeTab = state.phase === "scanner" ? "scanner" : "queue";
+
+  // Load saved session on mount (with JWT expiry check)
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const raw = localStorage.getItem(STAFF_SESSION_KEY);
       if (raw) {
         const saved = JSON.parse(raw) as StaffSession;
-        if (saved.token && saved.venueId) {
+        if (saved.token && saved.venueId && !isTokenExpired(saved.token)) {
           setSession(saved);
-          setState({ phase: "scanning" });
+          setState({ phase: "queue" });
+        } else {
+          localStorage.removeItem(STAFF_SESSION_KEY);
         }
       }
     } catch {
-      // corrupt storage — ignore
+      // corrupt storage
     }
   }, []);
-
-  // Realtime: subscribe to new paid orders for this venue
-  useEffect(() => {
-    if (!session) return;
-
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`new-orders-${session.venueId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "orders",
-          filter: `venue_id=eq.${session.venueId}`,
-        },
-        (payload) => {
-          const updated = payload.new as Order;
-          if (updated.status === "paid") {
-            playBeep();
-            setNewOrders((prev) => {
-              // deduplicate
-              if (prev.some((o) => o.id === updated.id)) return prev;
-              return [
-                {
-                  id: updated.id,
-                  orderNumber: updated.order_number,
-                  totalCLP: updated.total_clp,
-                  seenAt: Date.now(),
-                },
-                ...prev.slice(0, 9), // keep last 10
-              ];
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [session]);
 
   function handleLoginSuccess(s: StaffSession) {
     localStorage.setItem(STAFF_SESSION_KEY, JSON.stringify(s));
     setSession(s);
-    setState({ phase: "scanning" });
+    setState({ phase: "queue" });
   }
 
   function handleLogout() {
     localStorage.removeItem(STAFF_SESSION_KEY);
     setSession(null);
-    setNewOrders([]);
     setState({ phase: "login" });
   }
 
-  async function handleScan(orderId: string) {
-    if (!session || state.phase === "loading_order") return;
+  async function handleOpenOrder(orderId: string, returnTo: "queue" | "scanner" = "queue") {
+    if (!session) return;
     setState({ phase: "loading_order" });
 
     try {
@@ -171,64 +119,50 @@ export default function StaffScanPage() {
         return;
       }
 
-      setState({ phase: "order", data });
-      // Dismiss from new orders list if present
-      setNewOrders((prev) => prev.filter((o) => o.id !== orderId));
+      setState({ phase: "order", data, returnTo });
     } catch {
       setState({ phase: "scan_error", message: "Error de conexión" });
     }
   }
 
-  async function handleOverride(orderId: string, newStatus: string) {
-    if (!session) return;
-    try {
-      const res = await fetch(`/api/staff/orders/${orderId}/override`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (res.ok) {
-        // Re-fetch order to update UI
-        handleScan(orderId);
-      }
-    } catch {
-      // ignore
-    }
-  }
+  async function handleTransition(orderId: string, action: string) {
+    if (!session || state.phase !== "order") return;
+    const { data, returnTo } = state;
+    setState({ phase: "transitioning", data, returnTo });
 
-  async function handleDeliver(orderId: string) {
-    if (!session) return;
-    setState({ phase: "delivering" });
-
-    const res = await fetch(`/api/staff/orders/${orderId}/deliver`, {
+    const res = await fetch(`/api/staff/orders/${orderId}/transition`, {
       method: "PATCH",
-      headers: { Authorization: `Bearer ${session.token}` },
+      headers: {
+        Authorization: `Bearer ${session.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action }),
     });
 
     if (res.ok) {
-      const orderNumber =
-        state.phase === "delivering"
-          ? 0
-          : (state as { phase: "order"; data: ScannedOrder }).data?.order.order_number ?? 0;
-      setState({ phase: "done", orderNumber });
-      setTimeout(() => setState({ phase: "scanning" }), 2000);
+      const { newStatus } = await res.json();
+      if (newStatus === "delivered") {
+        setState({ phase: "done", orderNumber: data.order.order_number, returnTo });
+        setTimeout(() => setState({ phase: returnTo }), 2000);
+      } else {
+        // Status advanced — go back to the return view
+        setState({ phase: returnTo });
+      }
     } else {
       const body = await res.json().catch(() => ({}));
       setState({
         phase: "order",
-        data: (state as { data: ScannedOrder }).data,
+        data,
+        returnTo,
         error:
-          body.error === "ALREADY_DELIVERED"
-            ? "Ya fue entregado"
-            : "Error al marcar como entregado",
+          body.error === "INVALID_TRANSITION"
+            ? `Estado ya cambió a "${body.currentStatus}"`
+            : "Error al actualizar",
       });
     }
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   if (state.phase === "login") {
     return <LoginView onSuccess={handleLoginSuccess} />;
@@ -250,31 +184,44 @@ export default function StaffScanPage() {
         </button>
       </header>
 
-      {/* New orders alerts */}
-      {newOrders.length > 0 && (
-        <div className="bg-trago-orange/10 border-b border-trago-orange/20 px-4 py-2 flex-shrink-0">
-          <p className="text-trago-orange text-xs font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-            <Bell className="w-3.5 h-3.5" /> Nuevos pedidos pagados ({newOrders.length})
-          </p>
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-            {newOrders.map((o) => (
-              <button
-                key={o.id}
-                onClick={() => handleScan(o.id)}
-                className="flex-shrink-0 bg-trago-orange/15 border border-trago-orange/30 rounded-xl px-3 py-1.5 text-left touch-manipulation press-scale"
-              >
-                <p className="text-trago-orange-light font-bold text-sm">#{o.orderNumber}</p>
-                <p className="text-trago-orange/60 text-xs">{formatCLP(o.totalCLP)}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Tab bar */}
+      <div className="flex border-b border-trago-border flex-shrink-0">
+        <button
+          onClick={() => setState({ phase: "queue" })}
+          className={`flex-1 h-12 flex items-center justify-center gap-2 text-sm font-medium touch-manipulation transition-colors ${
+            activeTab === "queue"
+              ? "text-trago-orange border-b-2 border-trago-orange"
+              : "text-zinc-500"
+          }`}
+        >
+          <List className="w-4 h-4" />
+          Cola
+        </button>
+        <button
+          onClick={() => setState({ phase: "scanner" })}
+          className={`flex-1 h-12 flex items-center justify-center gap-2 text-sm font-medium touch-manipulation transition-colors ${
+            activeTab === "scanner"
+              ? "text-trago-orange border-b-2 border-trago-orange"
+              : "text-zinc-500"
+          }`}
+        >
+          <ScanLine className="w-4 h-4" />
+          Escanear
+        </button>
+      </div>
 
       {/* Body */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {state.phase === "scanning" && (
-          <ScannerView onScan={handleScan} />
+        {state.phase === "queue" && session && (
+          <OrderQueue
+            token={session.token}
+            venueId={session.venueId}
+            onOpenOrder={(id) => handleOpenOrder(id, "queue")}
+          />
+        )}
+
+        {state.phase === "scanner" && (
+          <ScannerView onScan={(id) => handleOpenOrder(id, "scanner")} />
         )}
 
         {state.phase === "loading_order" && (
@@ -291,29 +238,22 @@ export default function StaffScanPage() {
             </div>
             <p className="text-white font-semibold text-lg">{state.message}</p>
             <button
-              onClick={() => setState({ phase: "scanning" })}
+              onClick={() => setState({ phase: "queue" })}
               className="h-12 px-8 bg-trago-orange text-white font-bold rounded-xl touch-manipulation press-scale glow-orange-sm"
             >
-              Volver a escanear
+              Volver
             </button>
           </div>
         )}
 
-        {state.phase === "order" && (
+        {(state.phase === "order" || state.phase === "transitioning") && (
           <OrderView
             data={state.data}
-            error={state.error}
-            onDeliver={handleDeliver}
-            onOverride={handleOverride}
-            onBack={() => setState({ phase: "scanning" })}
+            error={state.phase === "order" ? state.error : undefined}
+            transitioning={state.phase === "transitioning"}
+            onTransition={handleTransition}
+            onBack={() => setState({ phase: state.returnTo })}
           />
-        )}
-
-        {state.phase === "delivering" && (
-          <div className="flex-1 flex items-center justify-center gap-3 flex-col">
-            <Loader2 className="w-8 h-8 text-trago-orange animate-spin" />
-            <p className="text-trago-muted text-sm">Marcando como entregado…</p>
-          </div>
         )}
 
         {state.phase === "done" && (
@@ -323,336 +263,6 @@ export default function StaffScanPage() {
             </div>
             <p className="text-white font-display text-2xl">¡Entregado!</p>
             <p className="text-trago-muted">Pedido #{state.orderNumber}</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Login view ────────────────────────────────────────────────────────────────
-
-function LoginView({ onSuccess }: { onSuccess: (s: StaffSession) => void }) {
-  const [venueSlug, setVenueSlug] = useState("");
-  const [pin, setPin] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  function handleKey(digit: string) {
-    if (pin.length < PIN_LENGTH) setPin((p) => p + digit);
-  }
-
-  function handleDelete() {
-    setPin((p) => p.slice(0, -1));
-  }
-
-  async function handleSubmit() {
-    if (pin.length !== PIN_LENGTH || !venueSlug.trim()) return;
-    setLoading(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/staff/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ venueSlug: venueSlug.trim(), pin }),
-      });
-
-      if (res.status === 401) {
-        setError("PIN o local incorrecto");
-        setPin("");
-        setLoading(false);
-        return;
-      }
-      if (!res.ok) {
-        setError("Error de servidor");
-        setPin("");
-        setLoading(false);
-        return;
-      }
-
-      const data = await res.json();
-      onSuccess(data as StaffSession);
-    } catch {
-      setError("Error de conexión");
-      setPin("");
-      setLoading(false);
-    }
-  }
-
-  // Auto-submit when PIN is complete
-  useEffect(() => {
-    if (pin.length === PIN_LENGTH && venueSlug.trim()) {
-      handleSubmit();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pin]);
-
-  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
-
-  return (
-    <div className="min-h-screen bg-trago-black flex flex-col items-center justify-center px-6 gap-8">
-      <div className="text-center">
-        <p className="text-white font-display text-2xl mb-1">Staff — Trago</p>
-        <p className="text-trago-muted text-sm">Ingresa con tu PIN</p>
-      </div>
-
-      {/* Venue slug */}
-      <input
-        type="text"
-        value={venueSlug}
-        onChange={(e) => setVenueSlug(e.target.value.toLowerCase().replace(/\s/g, "-"))}
-        placeholder="Slug del local (ej: club-demo)"
-        className="w-full max-w-xs bg-trago-card text-white placeholder-zinc-600 rounded-xl px-4 h-12 text-sm border border-trago-border focus:outline-none focus:ring-2 focus:ring-trago-orange/30 focus:border-trago-orange/50 transition-all"
-      />
-
-      {/* PIN dots */}
-      <div className="flex gap-4">
-        {Array.from({ length: PIN_LENGTH }).map((_, i) => (
-          <div
-            key={i}
-            className={`w-4 h-4 rounded-full border-2 transition-all duration-200 ${
-              i < pin.length
-                ? "bg-trago-orange border-trago-orange glow-orange-sm"
-                : "border-zinc-600"
-            }`}
-          />
-        ))}
-      </div>
-
-      {/* Error */}
-      {error && <p className="text-red-400 text-sm">{error}</p>}
-
-      {/* Numeric keypad */}
-      <div className="grid grid-cols-3 gap-3 w-full max-w-xs">
-        {keys.map((key, idx) => {
-          if (key === "") return <div key={idx} />;
-          if (key === "⌫") {
-            return (
-              <button
-                key={idx}
-                onClick={handleDelete}
-                disabled={loading}
-                className="h-16 bg-trago-card text-white text-2xl rounded-2xl flex items-center justify-center touch-manipulation press-scale border border-trago-border disabled:opacity-40"
-              >
-                ⌫
-              </button>
-            );
-          }
-          return (
-            <button
-              key={idx}
-              onClick={() => handleKey(key)}
-              disabled={loading || pin.length === PIN_LENGTH}
-              className="h-16 bg-zinc-800 text-white text-2xl font-semibold rounded-2xl flex items-center justify-center touch-manipulation active:bg-zinc-700 disabled:opacity-40"
-            >
-              {loading && pin.length === PIN_LENGTH ? (
-                <span className="w-5 h-5 border-2 border-zinc-500 border-t-white rounded-full animate-spin" />
-              ) : (
-                key
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── Scanner view ──────────────────────────────────────────────────────────────
-
-function ScannerView({ onScan }: { onScan: (orderId: string) => void }) {
-  const scannerRef = useRef<InstanceType<typeof import("html5-qrcode").Html5Qrcode> | null>(null);
-  const [cameraError, setCameraError] = useState(false);
-  const scanning = useRef(false);
-
-  const handleScanSuccess = useCallback(
-    (decodedText: string) => {
-      if (scanning.current) return;
-      scanning.current = true;
-      // The QR encodes the order UUID directly
-      const orderId = decodedText.trim();
-      onScan(orderId);
-    },
-    [onScan]
-  );
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    let mounted = true;
-
-    async function startScanner() {
-      try {
-        const { Html5Qrcode } = await import("html5-qrcode");
-        const scanner = new Html5Qrcode("qr-reader");
-        scannerRef.current = scanner;
-
-        await scanner.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          (text) => {
-            if (mounted) handleScanSuccess(text);
-          },
-          undefined
-        );
-      } catch {
-        if (mounted) setCameraError(true);
-      }
-    }
-
-    startScanner();
-
-    return () => {
-      mounted = false;
-      scannerRef.current
-        ?.stop()
-        .catch(() => {})
-        .finally(() => {
-          scannerRef.current?.clear();
-        });
-    };
-  }, [handleScanSuccess]);
-
-  if (cameraError) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-4">
-        <div className="w-16 h-16 rounded-full bg-trago-card border border-trago-border flex items-center justify-center">
-          <Camera className="w-7 h-7 text-trago-muted" />
-        </div>
-        <p className="text-white font-semibold">Sin acceso a la cámara</p>
-        <p className="text-trago-muted text-sm">
-          Permite el acceso a la cámara en la configuración de tu navegador y recarga la página.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4">
-      <p className="text-trago-muted text-sm">Apunta al QR del cliente</p>
-      {/* html5-qrcode mounts inside this div */}
-      <div
-        id="qr-reader"
-        className="w-full max-w-sm rounded-2xl overflow-hidden bg-trago-card border border-trago-border"
-        style={{ minHeight: 300 }}
-      />
-      <div className="flex items-center gap-2 text-trago-muted text-xs">
-        <span className="w-2 h-2 bg-trago-green rounded-full animate-pulse-glow" />
-        Escáner activo
-      </div>
-    </div>
-  );
-}
-
-// ── Order view ────────────────────────────────────────────────────────────────
-
-function OrderView({
-  data,
-  error,
-  onDeliver,
-  onOverride,
-  onBack,
-}: {
-  data: ScannedOrder;
-  error?: string;
-  onDeliver: (id: string) => void;
-  onOverride: (id: string, status: string) => void;
-  onBack: () => void;
-}) {
-  const { order, items } = data;
-  const canMarkReady = ["paid", "preparing"].includes(order.status);
-  const canDeliver = order.status === "ready";
-  const isPending = order.status === "pending";
-
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Back + order number */}
-      <div className="px-4 pt-4 pb-2 flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="w-10 h-10 flex items-center justify-center text-white touch-manipulation rounded-xl hover:bg-white/5 transition-colors -ml-1"
-          aria-label="Volver"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <p className="text-white font-display text-xl">Pedido #{order.order_number}</p>
-          <p className="text-trago-muted text-xs capitalize">
-            {ORDER_STATUS_LABELS[order.status as OrderStatus]}
-          </p>
-        </div>
-      </div>
-
-      {/* Items list */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="flex justify-between items-center bg-trago-card rounded-xl px-4 py-3 border border-trago-border"
-          >
-            <div>
-              <p className="text-white font-medium">{item.product_name}</p>
-              {item.notes && (
-                <p className="text-zinc-400 text-xs mt-0.5">{item.notes}</p>
-              )}
-            </div>
-            <div className="text-right">
-              <p className="text-white font-bold">×{item.quantity}</p>
-              <p className="text-zinc-400 text-xs tabular-nums">
-                {formatCLP(item.unit_price_clp * item.quantity)}
-              </p>
-            </div>
-          </div>
-        ))}
-
-        {order.notes && (
-          <div className="bg-trago-card rounded-xl px-4 py-3 border border-trago-border">
-            <p className="text-trago-muted text-xs mb-1">Nota del pedido</p>
-            <p className="text-white text-sm">{order.notes}</p>
-          </div>
-        )}
-
-        <div className="flex justify-between items-center px-1 pt-2">
-          <span className="text-zinc-400">Total</span>
-          <span className="text-white font-bold tabular-nums">{formatCLP(order.total_clp)}</span>
-        </div>
-      </div>
-
-      {/* Deliver button */}
-      <div className="px-4 pb-8 pt-2 flex-shrink-0">
-        {error && (
-          <p className="text-red-400 text-sm text-center mb-3">{error}</p>
-        )}
-        {canMarkReady ? (
-          <button
-            onClick={() => onOverride(order.id, "ready")}
-            className="w-full h-16 bg-trago-green text-white font-bold text-lg rounded-2xl touch-manipulation press-scale"
-          >
-            Pedido listo
-          </button>
-        ) : canDeliver ? (
-          <button
-            onClick={() => onDeliver(order.id)}
-            className="w-full h-16 bg-trago-orange text-white font-bold text-lg rounded-2xl touch-manipulation press-scale glow-orange"
-          >
-            Marcar como entregado
-          </button>
-        ) : isPending ? (
-          <div className="space-y-2">
-            <p className="text-trago-muted text-xs text-center mb-1">Pago pendiente — override para testing:</p>
-            <button
-              onClick={() => onOverride(order.id, "delivered")}
-              className="w-full h-14 bg-zinc-700 text-white font-bold rounded-2xl touch-manipulation press-scale border border-trago-border"
-            >
-              Override: Marcar como entregado
-            </button>
-          </div>
-        ) : (
-          <div className="w-full h-14 bg-trago-card rounded-2xl flex items-center justify-center border border-trago-border">
-            <p className="text-trago-muted text-sm">
-              Estado: {ORDER_STATUS_LABELS[order.status as OrderStatus]}
-            </p>
           </div>
         )}
       </div>
