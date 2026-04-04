@@ -95,7 +95,22 @@ interface QrCodeRow {
   id: string;
   venue_id: string;
   label: string;
+  station_id: string | null;
   created_at: string;
+}
+
+interface StationRow {
+  id: string;
+  venue_id: string;
+  name: string;
+  slug: string;
+  active: boolean;
+  created_at: string;
+}
+
+interface StationProductRow {
+  station_id: string;
+  product_id: string;
 }
 
 // ── Insert shapes (no auto-generated fields) ──────────────────────────────────
@@ -175,6 +190,16 @@ interface QrCodeInsert {
   id?: string;
   venue_id: string;
   label: string;
+  station_id?: string | null;
+  created_at?: string;
+}
+
+interface StationInsert {
+  id?: string;
+  venue_id: string;
+  name: string;
+  slug: string;
+  active?: boolean;
   created_at?: string;
 }
 
@@ -225,6 +250,18 @@ export type Database = {
         Update: Partial<QrCodeInsert>;
         Relationships: [];
       };
+      stations: {
+        Row: StationRow;
+        Insert: StationInsert;
+        Update: Partial<StationInsert>;
+        Relationships: [];
+      };
+      station_products: {
+        Row: StationProductRow;
+        Insert: StationProductRow;
+        Update: Partial<StationProductRow>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -242,3 +279,4 @@ export type Order = OrderRow;
 export type OrderItem = OrderItemRow;
 export type StaffUser = StaffUserRow;
 export type QrCode = QrCodeRow;
+export type Station = StationRow;

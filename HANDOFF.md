@@ -19,7 +19,15 @@
 | 4 — Staff scanner | 4.1 Scanner | ✅ Done |
 | 5 — Admin dashboard | 5.1 Admin dashboard | ✅ Done |
 
-**All code is complete. App is deployed and partially functional.**
+**All MVP phases complete. Post-MVP improvements in progress.**
+
+| Post-MVP | Feature | Status |
+|----------|---------|--------|
+| — | Persistent QR codes in dashboard | ✅ Done |
+| — | Live order queue + strict status flow | ✅ Done |
+| — | Supabase Storage bucket (product-images) | ✅ Done |
+| — | Supabase Auth admin user | ✅ Done |
+| — | Mercado Pago Wallet Brick rendering | ✅ Fixed |
 
 ---
 
@@ -68,12 +76,11 @@ printf 'value' | vercel env add VAR_NAME production
 
 ## What still needs to be done
 
-### 1. ~~Fix Mercado Pago Wallet Brick not rendering~~ ✅ Fixed
-### 2. ~~Create Supabase Storage bucket~~ ✅ Done (`product-images` public bucket created)
+### ~~1. Fix Mercado Pago Wallet Brick~~ ✅ Fixed
+### ~~2. Create Supabase Storage bucket~~ ✅ Done
+### ~~3. Create Supabase Auth admin user~~ ✅ Done (benjiturro77@gmail.com)
 
-### 3. Create Supabase Auth admin user (if not done yet)
-Supabase Dashboard → Authentication → Users → Add user (email + password)
-Then test login at https://trago-app.vercel.app/dashboard/login
+All original open items resolved. No blocking issues remaining.
 
 ---
 
