@@ -14,9 +14,10 @@ interface MenuClientProps {
   venue: Pick<Venue, "id" | "name" | "slug" | "logo_url">;
   categories: Category[];
   products: Product[];
+  stationName?: string;
 }
 
-export default function MenuClient({ venue, categories, products }: MenuClientProps) {
+export default function MenuClient({ venue, categories, products, stationName }: MenuClientProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const { totalCount, totalCLP } = useCart();
 
@@ -39,7 +40,12 @@ export default function MenuClient({ venue, categories, products }: MenuClientPr
               className="rounded-lg object-cover flex-shrink-0"
             />
           ) : null}
-          <h1 className="text-xl font-display text-white tracking-tight">{venue.name}</h1>
+          <div>
+            <h1 className="text-xl font-display text-white tracking-tight">{venue.name}</h1>
+            {stationName && (
+              <p className="text-xs text-trago-orange leading-none mt-0.5">{stationName}</p>
+            )}
+          </div>
         </div>
 
         <div className="px-4">

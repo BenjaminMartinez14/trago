@@ -11,12 +11,20 @@ interface Stats {
   topProducts: { name: string; quantity: number }[];
 }
 
+interface StationOption {
+  id: string;
+  name: string;
+  slug: string;
+  venues: { slug: string; name: string };
+}
+
 interface SavedQr {
   id: string;
   label: string;
   venue_id: string;
   created_at: string;
   venues: { slug: string; name: string };
+  stations: { slug: string; name: string } | null;
 }
 
 export default function DashboardPage() {
@@ -24,7 +32,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   // QR generator
-  const [venueSlug, setVenueSlug] = useState("");
+  const [stations, setStations] = useState<StationOption[]>([]);
+  const [selectedStationId, setSelectedStationId] = useState("");
   const [qrLabel, setQrLabel] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -43,13 +52,20 @@ export default function DashboardPage() {
     fetch("/api/dashboard/qr-codes")
       .then((r) => r.json())
       .then((d) => setSavedQrs(d.qrCodes ?? []));
+
+    fetch("/api/dashboard/stations")
+      .then((r) => r.json())
+      .then((d) => {
+        const list: StationOption[] = d.stations ?? [];
+        setStations(list);
+        if (list.length > 0) setSelectedStationId(list[0].id);
+      });
   }, []);
 
   async function handleSaveQR(e: React.FormEvent) {
     e.preventDefault();
-    const slug = venueSlug.trim();
     const label = qrLabel.trim();
-    if (!slug || !label) return;
+    if (!selectedStationId || !label) return;
 
     setSaving(true);
     setError("");
@@ -57,14 +73,14 @@ export default function DashboardPage() {
     const res = await fetch("/api/dashboard/qr-codes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, label }),
+      body: JSON.stringify({ stationId: selectedStationId, label }),
     });
 
     if (!res.ok) {
       const data = await res.json();
       setError(
-        data.error === "VENUE_NOT_FOUND"
-          ? "Local no encontrado con ese slug"
+        data.error === "STATION_NOT_FOUND"
+          ? "Estación no encontrada"
           : "Error al guardar"
       );
       setSaving(false);
@@ -73,7 +89,6 @@ export default function DashboardPage() {
 
     const { qrCode } = await res.json();
     setSavedQrs((prev) => [qrCode, ...prev]);
-    setVenueSlug("");
     setQrLabel("");
     setSaving(false);
   }
@@ -139,24 +154,31 @@ export default function DashboardPage() {
         <div className="bg-trago-card border border-trago-border rounded-xl p-6">
           <form onSubmit={handleSaveQR} className="flex flex-col gap-3">
             <div className="flex gap-3">
-              <input
-                type="text"
-                value={venueSlug}
-                onChange={(e) => setVenueSlug(e.target.value)}
-                placeholder="Slug del local (ej: club-demo)"
-                className="flex-1 px-3 py-2 bg-trago-dark border border-trago-border rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-trago-orange/30 focus:border-trago-orange/50 text-sm transition-all"
-              />
+              <select
+                value={selectedStationId}
+                onChange={(e) => setSelectedStationId(e.target.value)}
+                className="flex-1 px-3 py-2 bg-trago-dark border border-trago-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-trago-orange/30 focus:border-trago-orange/50 text-sm transition-all"
+              >
+                {stations.length === 0 && (
+                  <option value="">Sin estaciones — crea una primero</option>
+                )}
+                {stations.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.venues.name} — {s.name}
+                  </option>
+                ))}
+              </select>
               <input
                 type="text"
                 value={qrLabel}
                 onChange={(e) => setQrLabel(e.target.value)}
-                placeholder="Etiqueta (ej: Barra 1)"
+                placeholder="Etiqueta (ej: Mesa 5)"
                 className="flex-1 px-3 py-2 bg-trago-dark border border-trago-border rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-trago-orange/30 focus:border-trago-orange/50 text-sm transition-all"
               />
             </div>
             <button
               type="submit"
-              disabled={!venueSlug.trim() || !qrLabel.trim() || saving}
+              disabled={!selectedStationId || !qrLabel.trim() || saving}
               className="self-start px-4 py-2 bg-trago-orange hover:bg-trago-orange-light disabled:opacity-50 text-white font-semibold rounded-lg transition-colors text-sm press-scale"
             >
               {saving ? "Guardando..." : "Crear QR"}
@@ -202,7 +224,9 @@ function SavedQrCard({
   onDelete: (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const url = `${baseUrl}/${qr.venues.slug}`;
+  const url = qr.stations
+    ? `${baseUrl}/${qr.venues.slug}?s=${qr.stations.slug}`
+    : `${baseUrl}/${qr.venues.slug}`;
 
   return (
     <div className="bg-trago-card border border-trago-border rounded-xl p-4 flex gap-4 items-center">
@@ -211,8 +235,12 @@ function SavedQrCard({
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-white font-medium truncate">{qr.label}</p>
-        <p className="text-trago-muted text-xs truncate">{qr.venues.name} — /{qr.venues.slug}</p>
-        <p className="text-zinc-600 text-xs mt-1">
+        <p className="text-trago-muted text-xs truncate">
+          {qr.venues.name}
+          {qr.stations ? ` — ${qr.stations.name}` : ""}
+        </p>
+        <p className="text-zinc-600 text-xs mt-1 font-mono truncate">{url.replace(baseUrl, "")}</p>
+        <p className="text-zinc-700 text-xs">
           {new Date(qr.created_at).toLocaleDateString("es-CL")}
         </p>
       </div>
