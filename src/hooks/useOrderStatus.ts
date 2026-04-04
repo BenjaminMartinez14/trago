@@ -29,7 +29,7 @@ export function useOrderStatus(orderId: string): OrderStatusResult {
           setOrderNumber(data.orderNumber);
           setLoading(false);
           // Stop polling once order reaches a terminal state
-          if (["paid", "delivered", "cancelled"].includes(data.status)) {
+          if (["delivered", "cancelled"].includes(data.status)) {
             if (pollRef.current) clearInterval(pollRef.current);
           }
         }
@@ -61,7 +61,7 @@ export function useOrderStatus(orderId: string): OrderStatusResult {
             const newStatus = (payload.new as { status: OrderStatus }).status;
             setStatus(newStatus);
             setLoading(false);
-            if (["paid", "delivered", "cancelled"].includes(newStatus)) {
+            if (["delivered", "cancelled"].includes(newStatus)) {
               if (pollRef.current) clearInterval(pollRef.current);
             }
           }
