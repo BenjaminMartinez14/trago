@@ -202,6 +202,18 @@ export default function CheckoutPage() {
               onError={handleBrickError}
             />
           ); })()}
+
+          {process.env.NEXT_PUBLIC_MP_PUBLIC_KEY?.startsWith("TEST-") && (
+            <button
+              onClick={async () => {
+                await fetch(`/api/orders/${state.orderId}/test-pay`, { method: "POST" });
+                router.replace(`/${slug}/order/${state.orderId}`);
+              }}
+              className="mt-6 w-full h-12 border border-dashed border-zinc-600 text-zinc-400 hover:text-white hover:border-zinc-400 rounded-2xl text-sm font-medium transition-colors"
+            >
+              Pago de prueba (sin tarjeta)
+            </button>
+          )}
         </div>
       )}
 
