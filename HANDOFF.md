@@ -68,25 +68,8 @@ printf 'value' | vercel env add VAR_NAME production
 
 ## What still needs to be done
 
-### 1. Fix Mercado Pago Wallet Brick not rendering ← ACTIVE BUG
-The checkout page (`/[venue]/checkout`) reaches the `payment` phase correctly (order is created,
-preferenceId returned) but the `@mercadopago/sdk-react` Wallet Brick doesn't render visually.
-
-**Workaround for testing:** Create an order via API, fetch the `sandbox_init_point` from MP,
-and open it directly. Example:
-```bash
-curl -s -X POST "https://trago-app.vercel.app/api/orders" \
-  -H "Content-Type: application/json" \
-  -d '{"venueSlug":"club-demo","sessionId":"<any-uuid>","items":[{"productId":"<product-id>","quantity":1,"unitPrice":<price>}]}'
-# Then use the preferenceId to get sandbox_init_point from MP API
-```
-
-**Suspected cause:** `initMercadoPago()` is called at module level in `checkout/page.tsx`.
-May need to move it inside a `useEffect` or investigate SDK compatibility with Next.js 14.
-
-### 2. Create Supabase Storage bucket
-Image upload in the menu manager needs a public bucket named `product-images`.
-Supabase Dashboard → Storage → New bucket → name: `product-images` → Public: ON
+### 1. ~~Fix Mercado Pago Wallet Brick not rendering~~ ✅ Fixed
+### 2. ~~Create Supabase Storage bucket~~ ✅ Done (`product-images` public bucket created)
 
 ### 3. Create Supabase Auth admin user (if not done yet)
 Supabase Dashboard → Authentication → Users → Add user (email + password)
