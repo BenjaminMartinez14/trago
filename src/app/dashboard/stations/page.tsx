@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, ChevronRight, Check, X, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, Pencil, Trash2, ChevronRight, Check, X, Loader2, Download } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 import type { Station, Product } from "@/lib/supabase/types";
 
 const VENUE_ID = "a1b2c3d4-0000-0000-0000-000000000001";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "";
 
 interface StationWithVenue extends Station {
   venues: { slug: string; name: string };
@@ -257,38 +259,13 @@ export default function StationsPage() {
                     </div>
                   </form>
                 ) : (
-                  <button
-                    onClick={() => openAssign(s)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left group ${
-                      selected?.id === s.id
-                        ? "bg-trago-orange/10 border-trago-orange/40"
-                        : "bg-trago-card border-trago-border hover:border-zinc-600"
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${selected?.id === s.id ? "text-trago-orange" : "text-white"}`}>
-                        {s.name}
-                      </p>
-                      <p className="text-xs text-zinc-500 font-mono">/{s.slug}</p>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); startEdit(s); }}
-                        className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-500 hover:text-zinc-300 transition-colors"
-                        title="Editar"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
-                        className="p-1.5 rounded-lg hover:bg-red-900/30 text-zinc-500 hover:text-red-400 transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                      <ChevronRight className={`w-4 h-4 transition-colors ${selected?.id === s.id ? "text-trago-orange" : "text-zinc-600"}`} />
-                    </div>
-                  </button>
+                  <StationCard
+                    station={s}
+                    selected={selected?.id === s.id}
+                    onSelect={() => openAssign(s)}
+                    onEdit={() => startEdit(s)}
+                    onDelete={() => handleDelete(s.id)}
+                  />
                 )}
               </div>
             ))}
@@ -367,6 +344,78 @@ export default function StationsPage() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function StationCard({
+  station,
+  selected,
+  onSelect,
+  onEdit,
+  onDelete,
+}: {
+  station: StationWithVenue;
+  selected: boolean;
+  onSelect: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const url = `${BASE_URL}/${station.venues.slug}?s=${station.slug}`;
+
+  function downloadQR() {
+    const canvas = ref.current?.querySelector("canvas");
+    if (!canvas) return;
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = `qr-${station.slug}.png`;
+    a.click();
+  }
+
+  return (
+    <div
+      className={`rounded-xl border transition-all ${
+        selected ? "bg-trago-orange/10 border-trago-orange/40" : "bg-trago-card border-trago-border"
+      }`}
+    >
+      <button
+        onClick={onSelect}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left"
+      >
+        <div ref={ref} className="bg-white p-1.5 rounded-lg shrink-0">
+          <QRCodeCanvas value={url} size={56} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-medium ${selected ? "text-trago-orange" : "text-white"}`}>
+            {station.name}
+          </p>
+          <p className="text-xs text-zinc-500 font-mono truncate">?s={station.slug}</p>
+        </div>
+        <ChevronRight className={`w-4 h-4 shrink-0 transition-colors ${selected ? "text-trago-orange" : "text-zinc-600"}`} />
+      </button>
+      <div className="px-4 pb-3 flex gap-2">
+        <button
+          onClick={downloadQR}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-trago-dark border border-trago-border hover:bg-white/5 text-zinc-400 hover:text-white text-xs rounded-lg transition-colors"
+        >
+          <Download className="w-3 h-3" /> Descargar QR
+        </button>
+        <button
+          onClick={onEdit}
+          className="p-1.5 bg-trago-dark border border-trago-border hover:bg-white/5 text-zinc-500 hover:text-zinc-300 rounded-lg transition-colors"
+          title="Editar"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={onDelete}
+          className="p-1.5 bg-trago-dark border border-trago-border hover:bg-red-900/30 text-zinc-500 hover:text-red-400 rounded-lg transition-colors"
+          title="Eliminar"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   );
