@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
-import { Plus, Check, Wine } from "lucide-react";
+import { Minus, Plus, Wine } from "lucide-react";
 import type { Product } from "@/lib/supabase/types";
 import { useCart } from "@/hooks/useCart";
 import { formatCLP } from "@/lib/format";
@@ -12,14 +11,9 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { addItem } = useCart();
-  const [added, setAdded] = useState(false);
-
-  function handleAdd() {
-    addItem(product);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 900);
-  }
+  const { items, addItem, removeItem, updateQuantity } = useCart();
+  const cartItem = items.find((i) => i.product.id === product.id);
+  const qty = cartItem?.quantity ?? 0;
 
   return (
     <div className="flex gap-3 bg-trago-card rounded-2xl overflow-hidden border border-trago-border hover:border-zinc-700/50 transition-colors duration-200 animate-fade-in">
@@ -56,27 +50,36 @@ export default function ProductCard({ product }: ProductCardProps) {
             {formatCLP(product.price_clp)}
           </span>
 
-          <button
-            onClick={handleAdd}
-            aria-label={`Agregar ${product.name} al carrito`}
-            className={[
-              "flex-shrink-0 min-w-[48px] h-12 px-4 rounded-xl font-semibold text-sm",
-              "transition-all duration-200 touch-manipulation press-scale",
-              "flex items-center justify-center gap-1.5",
-              added
-                ? "bg-trago-green text-white"
-                : "bg-trago-orange text-white hover:bg-trago-orange-light glow-orange-sm",
-            ].join(" ")}
-          >
-            {added ? (
-              <Check className="w-5 h-5" strokeWidth={3} />
-            ) : (
-              <>
+          {qty === 0 ? (
+            <button
+              onClick={() => addItem(product)}
+              aria-label={`Agregar ${product.name}`}
+              className="flex-shrink-0 h-10 px-4 rounded-xl font-semibold text-sm bg-trago-orange text-white hover:bg-trago-orange-light glow-orange-sm transition-all touch-manipulation press-scale flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" strokeWidth={3} />
+              Agregar
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => updateQuantity(product.id, qty - 1)}
+                aria-label="Quitar uno"
+                className="w-9 h-9 rounded-xl bg-zinc-800 text-white flex items-center justify-center touch-manipulation press-scale hover:bg-zinc-700 transition-colors"
+              >
+                <Minus className="w-4 h-4" strokeWidth={3} />
+              </button>
+              <span className="text-white font-bold text-base tabular-nums w-5 text-center">
+                {qty}
+              </span>
+              <button
+                onClick={() => addItem(product)}
+                aria-label="Agregar uno más"
+                className="w-9 h-9 rounded-xl bg-trago-orange text-white flex items-center justify-center touch-manipulation press-scale hover:bg-trago-orange-light glow-orange-sm transition-colors"
+              >
                 <Plus className="w-4 h-4" strokeWidth={3} />
-                <span>Agregar</span>
-              </>
-            )}
-          </button>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

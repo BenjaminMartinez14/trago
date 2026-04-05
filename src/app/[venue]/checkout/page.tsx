@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { initMercadoPago, Wallet } from "@mercadopago/sdk-react";
 import { ArrowLeft, AlertTriangle, WifiOff, Loader2, XCircle } from "lucide-react";
@@ -16,9 +16,8 @@ type UnavailableItem = { productId: string; name: string };
 type PriceChange = { productId: string; name: string; oldPrice: number; newPrice: number };
 
 type CheckoutState =
-  | { phase: "summary" }
   | { phase: "creating" }
-  | { phase: "payment"; orderId: string; preferenceId: string }
+  | { phase: "ready"; orderId: string; preferenceId: string }
   | { phase: "unavailable"; items: UnavailableItem[] }
   | { phase: "price_changed"; changes: PriceChange[] }
   | { phase: "error"; message: string };
@@ -32,20 +31,25 @@ export default function CheckoutPage() {
   const isOnline = useOnlineStatus();
   const slug = params.venue;
 
-  const [state, setState] = useState<CheckoutState>({ phase: "summary" });
-  // Increment to remount the Wallet Brick (same preferenceId, no new order)
+  const [state, setState] = useState<CheckoutState>({ phase: "creating" });
   const [brickKey, setBrickKey] = useState(0);
-  // Accepted price overrides after a PRICE_CHANGED response
-  const [, setPriceOverrides] = useState<Map<string, number>>(new Map());
+  const [priceOverrides, setPriceOverrides] = useState<Map<string, number>>(new Map());
+  const submitted = useRef(false);
 
-  // Redirect to menu if cart becomes empty
+  // Auto-create order on mount
   useEffect(() => {
-    if (items.length === 0 && state.phase === "summary") {
+    if (items.length === 0) {
       router.replace(`/${slug}`);
+      return;
     }
-  }, [items.length, state.phase, slug, router]);
+    if (!submitted.current) {
+      submitted.current = true;
+      submitOrder(new Map());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  async function submitOrder(overrides: Map<string, number> = new Map()) {
+  async function submitOrder(overrides: Map<string, number>) {
     if (!isOnline) return;
     setState({ phase: "creating" });
 
@@ -87,7 +91,7 @@ export default function CheckoutPage() {
 
       const { orderId, preferenceId } = await res.json();
       clearCart();
-      setState({ phase: "payment", orderId, preferenceId });
+      setState({ phase: "ready", orderId, preferenceId });
     } catch {
       setState({ phase: "error", message: "Error de conexión. Verifica tu red e intenta nuevamente." });
     }
@@ -95,7 +99,6 @@ export default function CheckoutPage() {
 
   function handleBrickError(error: unknown) {
     console.error("MP Wallet Brick error:", error);
-    // Remount the brick with the same preferenceId — do NOT create a new order
     setBrickKey((k) => k + 1);
   }
 
@@ -107,11 +110,7 @@ export default function CheckoutPage() {
           <WifiOff className="w-9 h-9 text-trago-orange" />
         </div>
         <h2 className="text-white font-display text-xl">Esperando conexión…</h2>
-        <p className="text-trago-muted text-sm max-w-xs">
-          {state.phase === "payment"
-            ? "Tu pago está siendo procesado. No cierres esta pantalla."
-            : "Conecta a la red para continuar con el pago."}
-        </p>
+        <p className="text-trago-muted text-sm max-w-xs">Conecta a la red para continuar con el pago.</p>
         <Loader2 className="w-6 h-6 text-trago-orange animate-spin mt-2" />
       </div>
     );
@@ -129,15 +128,22 @@ export default function CheckoutPage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-xl font-display text-white tracking-tight">
-            {state.phase === "payment" ? "Pago" : "Confirmar pedido"}
-          </h1>
+          <h1 className="text-xl font-display text-white tracking-tight">Confirmar pedido</h1>
         </div>
       </header>
 
-      {/* ── Summary phase ── */}
-      {state.phase === "summary" && (
-        <div className="px-4 py-4 pb-36">
+      {/* ── Creating — spinner overlay ── */}
+      {state.phase === "creating" && (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Loader2 className="w-8 h-8 text-trago-orange animate-spin" />
+          <p className="text-trago-muted">Preparando tu pedido…</p>
+        </div>
+      )}
+
+      {/* ── Ready — summary + payment together ── */}
+      {state.phase === "ready" && (
+        <div className="px-4 py-4 pb-10 space-y-5">
+          {/* Order summary */}
           <div className="bg-trago-card rounded-2xl border border-trago-border overflow-hidden">
             {items.map((item, idx) => (
               <div
@@ -156,65 +162,44 @@ export default function CheckoutPage() {
                 </p>
               </div>
             ))}
+            <div className="flex justify-between items-center px-4 py-3 border-t border-trago-border bg-trago-dark/30">
+              <span className="text-trago-muted font-medium">Total</span>
+              <span className="text-white font-bold text-lg tabular-nums">{formatCLP(totalCLP)}</span>
+            </div>
           </div>
 
           {orderNotes && (
-            <div className="mt-4 bg-trago-card rounded-xl p-4 border border-trago-border">
+            <div className="bg-trago-card rounded-xl px-4 py-3 border border-trago-border">
               <p className="text-trago-muted text-xs mb-1 font-medium uppercase tracking-wider">Notas</p>
               <p className="text-white text-sm">{orderNotes}</p>
             </div>
           )}
 
-          <div className="fixed bottom-0 inset-x-0 glass-heavy px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <div className="flex justify-between items-center mb-3 px-1">
-              <span className="text-trago-muted">Total</span>
-              <span className="text-white font-bold text-xl tabular-nums">{formatCLP(totalCLP)}</span>
-            </div>
-            <button
-              onClick={() => submitOrder()}
-              className="w-full h-16 bg-trago-orange text-white font-bold text-lg rounded-2xl touch-manipulation press-scale glow-orange"
-            >
-              Pagar {formatCLP(totalCLP)}
-            </button>
+          {/* Payment */}
+          <div>
+            <p className="text-trago-muted text-sm text-center mb-3">Selecciona tu método de pago</p>
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {(() => { const W = Wallet as any; return (
+              <W
+                key={brickKey}
+                initialization={{ preferenceId: state.preferenceId }}
+                onSubmit={() => Promise.resolve()}
+                onError={handleBrickError}
+              />
+            ); })()}
+
+            {process.env.NEXT_PUBLIC_MP_PUBLIC_KEY?.startsWith("TEST-") && (
+              <button
+                onClick={async () => {
+                  await fetch(`/api/orders/${state.orderId}/test-pay`, { method: "POST" });
+                  router.replace(`/${slug}/order/${state.orderId}`);
+                }}
+                className="mt-4 w-full h-12 border border-dashed border-zinc-600 text-zinc-400 hover:text-white hover:border-zinc-400 rounded-2xl text-sm font-medium transition-colors"
+              >
+                Pago de prueba (sin tarjeta)
+              </button>
+            )}
           </div>
-        </div>
-      )}
-
-      {/* ── Creating phase ── */}
-      {state.phase === "creating" && (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-          <Loader2 className="w-8 h-8 text-trago-orange animate-spin" />
-          <p className="text-trago-muted">Preparando tu pedido…</p>
-        </div>
-      )}
-
-      {/* ── Payment phase — Wallet Brick ── */}
-      {state.phase === "payment" && (
-        <div className="px-4 py-6">
-          <p className="text-trago-muted text-sm text-center mb-6">
-            Selecciona tu método de pago
-          </p>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {(() => { const W = Wallet as any; return (
-            <W
-              key={brickKey}
-              initialization={{ preferenceId: state.preferenceId }}
-              onSubmit={() => Promise.resolve()}
-              onError={handleBrickError}
-            />
-          ); })()}
-
-          {process.env.NEXT_PUBLIC_MP_PUBLIC_KEY?.startsWith("TEST-") && (
-            <button
-              onClick={async () => {
-                await fetch(`/api/orders/${state.orderId}/test-pay`, { method: "POST" });
-                router.replace(`/${slug}/order/${state.orderId}`);
-              }}
-              className="mt-6 w-full h-12 border border-dashed border-zinc-600 text-zinc-400 hover:text-white hover:border-zinc-400 rounded-2xl text-sm font-medium transition-colors"
-            >
-              Pago de prueba (sin tarjeta)
-            </button>
-          )}
         </div>
       )}
 
@@ -268,6 +253,7 @@ export default function CheckoutPage() {
             onClick={() => {
               const overrides = new Map(state.changes.map((c) => [c.productId, c.newPrice]));
               setPriceOverrides(overrides);
+              submitted.current = false;
               submitOrder(overrides);
             }}
             className="w-full h-14 bg-trago-orange text-white font-bold rounded-2xl touch-manipulation press-scale glow-orange-sm"
@@ -291,7 +277,7 @@ export default function CheckoutPage() {
           </div>
           <p className="text-white font-semibold text-lg">{state.message}</p>
           <button
-            onClick={() => setState({ phase: "summary" })}
+            onClick={() => { submitted.current = false; submitOrder(priceOverrides); }}
             className="w-full h-14 bg-trago-orange text-white font-bold rounded-2xl touch-manipulation press-scale glow-orange-sm"
           >
             Intentar nuevamente
