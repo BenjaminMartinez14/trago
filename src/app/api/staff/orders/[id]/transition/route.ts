@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStaffTokenFromRequest, verifyStaffToken } from "@/lib/staff-auth";
 import { createServiceClient } from "@/lib/supabase/server";
+import { sendWhatsApp } from "@/lib/kapso";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +38,9 @@ export async function PATCH(
   // Fetch order
   const { data: order } = await (service as any)
     .from("orders")
-    .select("id, venue_id, status, order_number")
+    .select("id, venue_id, status, order_number, customer_phone")
     .eq("id", params.id)
-    .single() as { data: { id: string; venue_id: string; status: string; order_number: number } | null };
+    .single() as { data: { id: string; venue_id: string; status: string; order_number: number; customer_phone: string | null } | null };
 
   if (!order) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -65,6 +66,14 @@ export async function PATCH(
 
   if (error) {
     return NextResponse.json({ error: "DB_ERROR" }, { status: 500 });
+  }
+
+  if (transition.to === "ready" && order.customer_phone) {
+    void sendWhatsApp({
+      to: order.customer_phone,
+      templateId: process.env.KAPSO_TEMPLATE_ID ?? "order_ready",
+      variables: [String(order.order_number)],
+    }).catch((err) => console.error("[transition] kapso threw:", err));
   }
 
   return NextResponse.json({ success: true, newStatus: transition.to });

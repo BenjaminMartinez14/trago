@@ -18,6 +18,7 @@ type CreateOrderBody = {
   venueSlug: string;
   sessionId: string;
   stationId?: string;
+  customerPhone?: string;
   items: OrderItem[];
   orderNotes?: string;
 };
@@ -60,6 +61,7 @@ function validateBody(body: unknown): CreateOrderBody {
     venueSlug: b.venueSlug as string,
     sessionId: b.sessionId as string,
     stationId: typeof b.stationId === "string" && isValidUUID(b.stationId) ? b.stationId : undefined,
+    customerPhone: typeof b.customerPhone === "string" ? b.customerPhone.trim().slice(0, 20) : undefined,
     items: b.items as OrderItem[],
     orderNotes: typeof b.orderNotes === "string" ? b.orderNotes : undefined,
   };
@@ -164,6 +166,7 @@ export async function POST(request: Request) {
       venue_id: venue.id,
       session_id: body.sessionId,
       station_id: body.stationId ?? null,
+      customer_phone: body.customerPhone ?? null,
       status: "pending",
       total_clp: totalCLP,
       notes: body.orderNotes ?? null,

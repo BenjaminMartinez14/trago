@@ -67,6 +67,7 @@ interface OrderRow {
   mp_payment_id: string | null;
   mp_status: string | null;
   notes: string | null;
+  customer_phone: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -162,6 +163,7 @@ interface OrderInsert {
   mp_payment_id?: string | null;
   mp_status?: string | null;
   notes?: string | null;
+  customer_phone?: string | null;
   created_at?: string;
   updated_at?: string;
 }

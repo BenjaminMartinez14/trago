@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import type { Product } from "@/lib/supabase/types";
-import { SESSION_ID_KEY, STATION_ID_KEY } from "@/lib/constants";
+import { SESSION_ID_KEY, STATION_ID_KEY, CUSTOMER_PHONE_KEY } from "@/lib/constants";
 
 const CART_KEY = "trago_cart";
 
@@ -26,6 +26,8 @@ export type CartContextType = {
   sessionId: string;
   stationId: string | null;
   setStationId: (id: string) => void;
+  customerPhone: string | null;
+  setCustomerPhone: (phone: string) => void;
 };
 
 export const CartContext = createContext<CartContextType | null>(null);
@@ -50,6 +52,11 @@ function loadStationId(): string | null {
   return sessionStorage.getItem(STATION_ID_KEY);
 }
 
+function loadCustomerPhone(): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(CUSTOMER_PHONE_KEY);
+}
+
 function loadCart(): CartItem[] {
   if (typeof window === "undefined") return [];
   try {
@@ -63,10 +70,16 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   const [orderNotes, setOrderNotes] = useState("");
   const [sessionId] = useState<string>(getOrCreateSessionId);
   const [stationId, setStationIdState] = useState<string | null>(loadStationId);
+  const [customerPhone, setCustomerPhoneState] = useState<string | null>(loadCustomerPhone);
 
   const setStationId = useCallback((id: string) => {
     setStationIdState(id);
     try { sessionStorage.setItem(STATION_ID_KEY, id); } catch {}
+  }, []);
+
+  const setCustomerPhone = useCallback((phone: string) => {
+    setCustomerPhoneState(phone);
+    try { sessionStorage.setItem(CUSTOMER_PHONE_KEY, phone); } catch {}
   }, []);
 
   useEffect(() => {
@@ -134,6 +147,8 @@ export default function CartProvider({ children }: { children: ReactNode }) {
         sessionId,
         stationId,
         setStationId,
+        customerPhone,
+        setCustomerPhone,
       }}
     >
       {children}
