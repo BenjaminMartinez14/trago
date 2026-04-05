@@ -29,21 +29,38 @@
 | — | Supabase Auth admin user | ✅ Done |
 | — | Mercado Pago Wallet Brick rendering | ✅ Fixed |
 | — | Venue stations (zones) | ✅ Done |
+| — | QR-scan delivery flow | ✅ Done |
+| — | Real-time order status (customer view) | ✅ Fixed |
+| — | Cart persistence across navigations | ✅ Fixed |
+| — | Test payment button | ✅ Done |
 
-### Venue Stations — complete
+### Session 2026-04-04 — what was built/fixed
 
-**URL format:** `trago-app.vercel.app/club-demo?s=barra-vip`
-
-**What was built:**
+**Venue Stations (completed):**
 - Migration `005_stations.sql` — `stations` + `station_products` tables + `qr_codes.station_id` column
-- Types: `StationRow`, `StationInsert`, `StationProductRow` in `src/lib/supabase/types.ts`
-- API routes: `api/dashboard/stations/` (CRUD) + `api/dashboard/stations/[id]/products/` (GET + PUT)
-- Dashboard stations page (`src/app/dashboard/stations/page.tsx`) — CRUD stations + product assignment panel
-- Dashboard nav — "Estaciones" link added to `DashboardNav.tsx`
-- QR generator updated — station dropdown instead of raw slug, URL = `/{venue}?s={station-slug}`
-- Menu page (`src/app/[venue]/page.tsx`) — station picker (multi-station) or direct redirect (1 station) or full menu (no stations)
+- Dashboard stations page — CRUD + product assignment + QR shown inline on each station card with download button
+- Creating a station auto-creates a linked `qr_codes` row
+- QR generator removed from dashboard home (redundant)
+- Menu page uses `createServiceClient()` (anon key had RLS issues) — server component, safe
+- Menu: `?s={slug}` filters products; no param → redirect if 1 station, picker if many, full menu if none
+- "En espera" label for paid status (instead of "Pagado")
 
-**⚠️ Still required:** Run `supabase/migrations/005_stations.sql` in the Supabase SQL editor before testing.
+**Staff scanner rework:**
+- Removed "Escanear" tab — only queue tab remains
+- Delivery only via inline QR scan inside the order view
+- Order in `ready` state shows "Escanear QR para entregar" button
+- Camera opens inline; scans customer QR → if matches order ID → delivers; mismatch → error
+- Already-delivered scan shows "Entregado" (not "ya fue entregado")
+- Polling no longer stops at `paid` status → real-time updates work through full flow
+
+**Cart fix:**
+- Cart items now persisted to `sessionStorage` (key: `trago_cart`)
+- Survives layout remounts / hard navigations — no more "Ir al pago" redirect bug
+
+**Test payment:**
+- `/api/orders/[id]/test-pay` route — marks order as `paid` without MP
+- Only available when `NEXT_PUBLIC_MP_PUBLIC_KEY` starts with `TEST-`
+- Button shown below Wallet Brick in checkout payment phase
 
 ---
 
