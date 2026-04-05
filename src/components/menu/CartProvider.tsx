@@ -1,8 +1,10 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import type { Product } from "@/lib/supabase/types";
 import { SESSION_ID_KEY } from "@/lib/constants";
+
+const CART_KEY = "trago_cart";
 
 export type CartItem = {
   product: Product;
@@ -41,10 +43,22 @@ function getOrCreateSessionId(): string {
   return id;
 }
 
+function loadCart(): CartItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = sessionStorage.getItem(CART_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
 export default function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(loadCart);
   const [orderNotes, setOrderNotes] = useState("");
   const [sessionId] = useState<string>(getOrCreateSessionId);
+
+  useEffect(() => {
+    try { sessionStorage.setItem(CART_KEY, JSON.stringify(items)); } catch {}
+  }, [items]);
 
   const addItem = useCallback((product: Product) => {
     setItems((prev) => {
@@ -81,6 +95,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   const clearCart = useCallback(() => {
     setItems([]);
     setOrderNotes("");
+    try { sessionStorage.removeItem(CART_KEY); } catch {}
   }, []);
 
   const totalCount = items.reduce((sum, i) => sum + i.quantity, 0);
