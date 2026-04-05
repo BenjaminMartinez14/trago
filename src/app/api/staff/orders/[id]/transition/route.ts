@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStaffTokenFromRequest, verifyStaffToken } from "@/lib/staff-auth";
 import { createServiceClient } from "@/lib/supabase/server";
-import { sendWhatsApp } from "@/lib/kapso";
+import { sendOrderReadyWhatsApp } from "@/lib/kapso";
 
 export const dynamic = "force-dynamic";
 
@@ -69,10 +69,9 @@ export async function PATCH(
   }
 
   if (transition.to === "ready" && order.customer_phone) {
-    void sendWhatsApp({
+    void sendOrderReadyWhatsApp({
       to: order.customer_phone,
-      templateId: process.env.KAPSO_TEMPLATE_ID ?? "order_ready",
-      variables: [String(order.order_number)],
+      orderNumber: order.order_number,
     }).catch((err) => console.error("[transition] kapso threw:", err));
   }
 
