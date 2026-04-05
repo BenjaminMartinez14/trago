@@ -3,6 +3,8 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { verifyStaffToken, getStaffTokenFromRequest } from "@/lib/staff-auth";
 import type { Order, OrderItem } from "@/lib/supabase/types";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }

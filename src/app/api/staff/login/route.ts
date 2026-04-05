@@ -4,6 +4,8 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { signStaffToken } from "@/lib/staff-auth";
 import type { Venue, StaffUser } from "@/lib/supabase/types";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   let body: { venueSlug?: string; pin?: string };
   try {

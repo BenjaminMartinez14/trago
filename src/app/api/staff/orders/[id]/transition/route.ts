@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getStaffTokenFromRequest, verifyStaffToken } from "@/lib/staff-auth";
 import { createServiceClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 const ALLOWED_TRANSITIONS: Record<string, { from: string; to: string }> = {
   accept: { from: "paid", to: "preparing" },
   mark_ready: { from: "preparing", to: "ready" },

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getStaffTokenFromRequest, verifyStaffToken } from "@/lib/staff-auth";
 import { createServiceClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   const token = getStaffTokenFromRequest(request);
   if (!token) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });

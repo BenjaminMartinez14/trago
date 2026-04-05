@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import type { Order, OrderItem, Product } from "@/lib/supabase/types";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   // Auth check
   const supabase = createClient();

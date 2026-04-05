@@ -3,6 +3,8 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { createPreference } from "@/lib/mercadopago";
 import type { Venue, Product, Order } from "@/lib/supabase/types";
 
+export const dynamic = "force-dynamic";
+
 // ── Request shape ────────────────────────────────────────────────────────────
 
 type OrderItem = {

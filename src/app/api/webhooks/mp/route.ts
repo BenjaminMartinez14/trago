@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Payment } from "mercadopago";
 import { createServiceClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 // ── Signature validation ─────────────────────────────────────────────────────
 // Format: x-signature: ts=<unix>,v1=<hmac-sha256>
 // Manifest: id:<data.id>;request-id:<x-request-id>;ts:<ts>
