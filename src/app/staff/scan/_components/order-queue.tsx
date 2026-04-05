@@ -145,8 +145,10 @@ export default function OrderQueue({
               fetchSingleOrder(updated.id);
               return prev;
             });
-          } else {
-            // Remove (delivered/cancelled)
+          } else if (updated.status === "delivered" || updated.status === "cancelled") {
+            // Only remove when explicitly terminal — ignore "pending" and other transient statuses.
+            // "pending" INSERT events can arrive after the poll already shows the order as "paid",
+            // and blindly removing on any non-active status would wipe visible orders.
             setOrders((prev) => prev.filter((o) => o.id !== updated.id));
           }
         }
