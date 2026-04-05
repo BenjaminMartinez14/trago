@@ -86,6 +86,27 @@ export default function OrderQueue({
     return () => document.removeEventListener("visibilitychange", handleVisible);
   }, [fetchOrders]);
 
+  const fetchSingleOrder = useCallback(
+    async (orderId: string) => {
+      const res = await fetch(`/api/staff/orders/${orderId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const orderWithItems: OrderWithItems = {
+        ...data.order,
+        order_items: data.items,
+      };
+      setOrders((prev) => {
+        if (prev.some((o) => o.id === orderId)) {
+          return prev.map((o) => (o.id === orderId ? orderWithItems : o));
+        }
+        return [...prev, orderWithItems];
+      });
+    },
+    [token]
+  );
+
   // Realtime subscription
   useEffect(() => {
     const supabase = createClient();
@@ -136,27 +157,6 @@ export default function OrderQueue({
       supabase.removeChannel(channel);
     };
   }, [venueId, stationId, fetchSingleOrder]);
-
-  const fetchSingleOrder = useCallback(
-    async (orderId: string) => {
-      const res = await fetch(`/api/staff/orders/${orderId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      const orderWithItems: OrderWithItems = {
-        ...data.order,
-        order_items: data.items,
-      };
-      setOrders((prev) => {
-        if (prev.some((o) => o.id === orderId)) {
-          return prev.map((o) => (o.id === orderId ? orderWithItems : o));
-        }
-        return [...prev, orderWithItems];
-      });
-    },
-    [token]
-  );
 
   async function handleTransition(orderId: string, action: string) {
     setTransitioning(orderId);
