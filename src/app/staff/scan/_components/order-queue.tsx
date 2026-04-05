@@ -54,19 +54,37 @@ export default function OrderQueue({
   const [loading, setLoading] = useState(true);
   const [transitioning, setTransitioning] = useState<string | null>(null);
 
+  const fetchOrders = useCallback(() => {
+    const base = stationId
+      ? `/api/staff/orders?stationId=${stationId}&_t=${Date.now()}`
+      : `/api/staff/orders?_t=${Date.now()}`;
+    return fetch(base, {
+      headers: { Authorization: `Bearer ${token}`, "Cache-Control": "no-cache" },
+    })
+      .then((r) => r.json())
+      .then((d) => setOrders(d.orders ?? []));
+  }, [token, stationId]);
+
   // Fetch initial orders (re-fetch when stationId changes)
   useEffect(() => {
     setLoading(true);
-    const url = stationId
-      ? `/api/staff/orders?stationId=${stationId}`
-      : "/api/staff/orders";
-    fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((d) => setOrders(d.orders ?? []))
-      .finally(() => setLoading(false));
-  }, [token, stationId]);
+    fetchOrders().finally(() => setLoading(false));
+  }, [fetchOrders]);
+
+  // Polling fallback — ensures orders appear even when realtime drops
+  useEffect(() => {
+    const interval = setInterval(fetchOrders, 5_000);
+    return () => clearInterval(interval);
+  }, [fetchOrders]);
+
+  // Re-fetch immediately when tab becomes visible (mobile staff switch apps often)
+  useEffect(() => {
+    const handleVisible = () => {
+      if (document.visibilityState === "visible") fetchOrders();
+    };
+    document.addEventListener("visibilitychange", handleVisible);
+    return () => document.removeEventListener("visibilitychange", handleVisible);
+  }, [fetchOrders]);
 
   // Realtime subscription
   useEffect(() => {
@@ -85,8 +103,8 @@ export default function OrderQueue({
           const updated = payload.new as Order & { station_id?: string | null };
           if (!updated?.id) return;
 
-          // If a station filter is active, ignore orders from other stations
-          if (stationId && updated.station_id !== stationId) {
+          // If a station filter is active, ignore orders from other stations (but keep unassigned ones)
+          if (stationId && updated.station_id !== null && updated.station_id !== stationId) {
             setOrders((prev) => prev.filter((o) => o.id !== updated.id));
             return;
           }
@@ -117,8 +135,7 @@ export default function OrderQueue({
     return () => {
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [venueId]);
+  }, [venueId, stationId, fetchSingleOrder]);
 
   const fetchSingleOrder = useCallback(
     async (orderId: string) => {
@@ -157,6 +174,8 @@ export default function OrderQueue({
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
       );
+      // Force a fresh fetch to replace any stale data the poll might return
+      fetchOrders();
     }
     setTransitioning(null);
   }
@@ -205,11 +224,19 @@ export default function OrderQueue({
                       <p className="text-white font-bold text-sm">
                         #{order.order_number}
                       </p>
-                      <p className="text-zinc-400 text-xs mt-0.5">
-                        {order.order_items
-                          ?.map((i) => `${i.product_name} ×${i.quantity}`)
-                          .join(", ")}
-                      </p>
+                      <div className="mt-0.5 space-y-0.5">
+                        {order.order_items?.map((i) => (
+                          <p key={i.id} className="text-zinc-400 text-xs">
+                            {i.product_name} ×{i.quantity}
+                            {i.notes && (
+                              <span className="text-yellow-400 ml-1">— {i.notes}</span>
+                            )}
+                          </p>
+                        ))}
+                        {order.notes && (
+                          <p className="text-yellow-400 text-xs mt-1">📝 {order.notes}</p>
+                        )}
+                      </div>
                     </div>
                     <div className="text-right shrink-0 ml-3">
                       <p className="text-white text-sm font-semibold tabular-nums">

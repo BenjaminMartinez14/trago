@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, AlertTriangle, Loader2, MapPin, ChevronRight } from "lucide-react";
 import LoginView from "./_components/login-view";
 import OrderView from "./_components/order-view";
@@ -121,9 +122,28 @@ function StationSelectView({
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export default function StaffScanPage() {
+  return (
+    <Suspense>
+      <StaffScanPageInner />
+    </Suspense>
+  );
+}
+
+function StaffScanPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [session, setSession] = useState<StaffSession | null>(null);
   const [state, setState] = useState<PageState>({ phase: "login" });
   const [selectedStation, setSelectedStation] = useState<Station | null | undefined>(undefined);
+
+  // Auto-open order from URL param once session is ready
+  useEffect(() => {
+    const orderId = searchParams.get("order");
+    if (orderId && session && state.phase === "queue") {
+      handleOpenOrder(orderId, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
 
   // Load saved session + station on mount
   useEffect(() => {
@@ -177,9 +197,10 @@ export default function StaffScanPage() {
     setState({ phase: "login" });
   }
 
-  async function handleOpenOrder(orderId: string) {
+  const handleOpenOrder = useCallback(async (orderId: string, updateUrl = true) => {
     if (!session) return;
     setState({ phase: "loading_order" });
+    if (updateUrl) router.push(`/staff/scan?order=${orderId}`);
 
     try {
       const res = await fetch(`/api/staff/orders/${orderId}`, {
@@ -188,14 +209,17 @@ export default function StaffScanPage() {
 
       if (res.status === 404) {
         setState({ phase: "scan_error", message: "Pedido no encontrado" });
+        router.replace("/staff/scan");
         return;
       }
       if (res.status === 403) {
         setState({ phase: "scan_error", message: "Este pedido no pertenece a este local" });
+        router.replace("/staff/scan");
         return;
       }
       if (!res.ok) {
         setState({ phase: "scan_error", message: "Error al cargar el pedido" });
+        router.replace("/staff/scan");
         return;
       }
 
@@ -203,18 +227,21 @@ export default function StaffScanPage() {
 
       if (data.order.status === "delivered") {
         setState({ phase: "scan_error", message: "Entregado" });
+        router.replace("/staff/scan");
         return;
       }
       if (data.order.status === "cancelled") {
         setState({ phase: "scan_error", message: "Este pedido fue cancelado" });
+        router.replace("/staff/scan");
         return;
       }
 
       setState({ phase: "order", data });
     } catch {
       setState({ phase: "scan_error", message: "Error de conexión" });
+      router.replace("/staff/scan");
     }
-  }
+  }, [session, router]);
 
   async function handleTransition(orderId: string, action: string) {
     if (!session || state.phase !== "order") return;
@@ -229,6 +256,7 @@ export default function StaffScanPage() {
 
     if (res.ok) {
       const { newStatus } = await res.json();
+      router.replace("/staff/scan");
       if (newStatus === "delivered") {
         setState({ phase: "done", orderNumber: data.order.order_number });
         setTimeout(() => setState({ phase: "queue" }), 2000);
@@ -300,7 +328,7 @@ export default function StaffScanPage() {
             </div>
             <p className="text-white font-semibold text-lg">{state.message}</p>
             <button
-              onClick={() => setState({ phase: "queue" })}
+              onClick={() => { router.replace("/staff/scan"); setState({ phase: "queue" }); }}
               className="h-12 px-8 bg-trago-orange text-white font-bold rounded-xl touch-manipulation press-scale glow-orange-sm"
             >
               Volver
@@ -314,7 +342,7 @@ export default function StaffScanPage() {
             error={state.phase === "order" ? state.error : undefined}
             transitioning={state.phase === "transitioning"}
             onTransition={handleTransition}
-            onBack={() => setState({ phase: "queue" })}
+            onBack={() => { router.replace("/staff/scan"); setState({ phase: "queue" }); }}
           />
         )}
 
