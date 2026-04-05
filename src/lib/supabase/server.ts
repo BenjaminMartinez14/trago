@@ -32,6 +32,14 @@ export function createServiceClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
       cookies: { getAll: () => [], setAll: () => {} },
+      global: {
+        headers: { "Cache-Control": "no-cache" },
+        // Next.js patches global fetch and caches responses by default.
+        // force-dynamic on routes doesn't opt out individual fetch calls,
+        // so we explicitly pass cache: 'no-store' to every Supabase request.
+        fetch: (url: RequestInfo | URL, options?: RequestInit) =>
+          fetch(url, { ...options, cache: "no-store" }),
+      },
     }
   );
 }
