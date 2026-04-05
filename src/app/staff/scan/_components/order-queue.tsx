@@ -42,25 +42,31 @@ const SECTIONS: { status: string; title: string; accent: string; bg: string }[] 
 export default function OrderQueue({
   token,
   venueId,
+  stationId,
   onOpenOrder,
 }: {
   token: string;
   venueId: string;
+  stationId: string | null;
   onOpenOrder: (orderId: string) => void;
 }) {
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
   const [transitioning, setTransitioning] = useState<string | null>(null);
 
-  // Fetch initial orders
+  // Fetch initial orders (re-fetch when stationId changes)
   useEffect(() => {
-    fetch("/api/staff/orders", {
+    setLoading(true);
+    const url = stationId
+      ? `/api/staff/orders?stationId=${stationId}`
+      : "/api/staff/orders";
+    fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
       .then((d) => setOrders(d.orders ?? []))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, stationId]);
 
   // Realtime subscription
   useEffect(() => {
@@ -76,8 +82,14 @@ export default function OrderQueue({
           filter: `venue_id=eq.${venueId}`,
         },
         (payload) => {
-          const updated = payload.new as Order;
+          const updated = payload.new as Order & { station_id?: string | null };
           if (!updated?.id) return;
+
+          // If a station filter is active, ignore orders from other stations
+          if (stationId && updated.station_id !== stationId) {
+            setOrders((prev) => prev.filter((o) => o.id !== updated.id));
+            return;
+          }
 
           const activeStatuses = ["paid", "preparing", "ready"];
 

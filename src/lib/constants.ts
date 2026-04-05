@@ -30,6 +30,7 @@ export const SW_CACHE_STRATEGIES = {
 } as const;
 
 export const SESSION_ID_KEY = "trago_session_id";
+export const STATION_ID_KEY = "trago_station_id";
 
 // Queue actions — paid and preparing only. Delivery is done via QR scan.
 export const STAFF_STATUS_TRANSITIONS: Record<

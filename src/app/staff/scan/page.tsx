@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
-import { formatCLP } from "@/lib/format";
+import { CheckCircle2, AlertTriangle, Loader2, MapPin, ChevronRight } from "lucide-react";
 import LoginView from "./_components/login-view";
-import ScannerView from "./_components/scanner-view";
 import OrderView from "./_components/order-view";
 import OrderQueue from "./_components/order-queue";
 import type { Order, OrderItem } from "@/lib/supabase/types";
@@ -23,8 +21,15 @@ type ScannedOrder = {
   items: OrderItem[];
 };
 
+type Station = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 type PageState =
   | { phase: "login" }
+  | { phase: "station_select" }
   | { phase: "queue" }
   | { phase: "loading_order" }
   | { phase: "order"; data: ScannedOrder; error?: string }
@@ -33,6 +38,7 @@ type PageState =
   | { phase: "scan_error"; message: string };
 
 const STAFF_SESSION_KEY = "trago_staff_session";
+const STAFF_STATION_KEY = "trago_staff_station";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,14 +51,81 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
+// ── Station selector view ─────────────────────────────────────────────────────
+
+function StationSelectView({
+  token,
+  onSelect,
+}: {
+  token: string;
+  onSelect: (station: Station | null) => void;
+}) {
+  const [stations, setStations] = useState<Station[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/staff/stations", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((d) => setStations(d.stations ?? []))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-trago-orange animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col px-4 py-8 gap-4">
+      <div className="text-center mb-2">
+        <MapPin className="w-8 h-8 text-trago-orange mx-auto mb-2" />
+        <p className="text-white font-display text-xl">Seleccionar estación</p>
+        <p className="text-zinc-500 text-sm mt-1">¿Desde qué barra estás atendiendo?</p>
+      </div>
+
+      <div className="space-y-2">
+        {stations.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => onSelect(s)}
+            className="w-full flex items-center justify-between bg-trago-card border border-trago-border rounded-2xl px-5 py-4 text-white hover:border-trago-orange/50 hover:bg-trago-orange/5 transition-all active:scale-95 touch-manipulation"
+          >
+            <span className="font-semibold text-base">{s.name}</span>
+            <ChevronRight className="w-5 h-5 text-trago-orange" />
+          </button>
+        ))}
+
+        {stations.length > 1 && (
+          <button
+            onClick={() => onSelect(null)}
+            className="w-full flex items-center justify-between bg-trago-card border border-zinc-700 rounded-2xl px-5 py-4 text-zinc-400 hover:text-white hover:border-zinc-500 transition-all active:scale-95 touch-manipulation"
+          >
+            <span className="font-medium text-sm">Ver todos los pedidos</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
+
+        {stations.length === 0 && (
+          <p className="text-zinc-500 text-center py-8">No hay estaciones activas</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export default function StaffScanPage() {
   const [session, setSession] = useState<StaffSession | null>(null);
   const [state, setState] = useState<PageState>({ phase: "login" });
+  const [selectedStation, setSelectedStation] = useState<Station | null | undefined>(undefined);
 
-
-  // Load saved session on mount (with JWT expiry check)
+  // Load saved session + station on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -61,9 +134,18 @@ export default function StaffScanPage() {
         const saved = JSON.parse(raw) as StaffSession;
         if (saved.token && saved.venueId && !isTokenExpired(saved.token)) {
           setSession(saved);
-          setState({ phase: "queue" });
+          // Restore previously selected station
+          const savedStation = localStorage.getItem(STAFF_STATION_KEY);
+          if (savedStation) {
+            setSelectedStation(JSON.parse(savedStation));
+            setState({ phase: "queue" });
+          } else {
+            setState({ phase: "station_select" });
+          }
+          return;
         } else {
           localStorage.removeItem(STAFF_SESSION_KEY);
+          localStorage.removeItem(STAFF_STATION_KEY);
         }
       }
     } catch {
@@ -74,12 +156,24 @@ export default function StaffScanPage() {
   function handleLoginSuccess(s: StaffSession) {
     localStorage.setItem(STAFF_SESSION_KEY, JSON.stringify(s));
     setSession(s);
+    setState({ phase: "station_select" });
+  }
+
+  function handleStationSelect(station: Station | null) {
+    setSelectedStation(station);
+    if (station) {
+      localStorage.setItem(STAFF_STATION_KEY, JSON.stringify(station));
+    } else {
+      localStorage.removeItem(STAFF_STATION_KEY);
+    }
     setState({ phase: "queue" });
   }
 
   function handleLogout() {
     localStorage.removeItem(STAFF_SESSION_KEY);
+    localStorage.removeItem(STAFF_STATION_KEY);
     setSession(null);
+    setSelectedStation(undefined);
     setState({ phase: "login" });
   }
 
@@ -162,7 +256,12 @@ export default function StaffScanPage() {
       <header className="glass-heavy px-4 h-14 flex items-center justify-between flex-shrink-0">
         <div>
           <p className="text-white font-semibold text-sm">{session?.name}</p>
-          <p className="text-zinc-500 text-xs capitalize">{session?.role}</p>
+          <button
+            onClick={() => setState({ phase: "station_select" })}
+            className="text-trago-orange text-xs hover:text-trago-orange/80 transition-colors text-left"
+          >
+            {selectedStation ? selectedStation.name : "Todos los pedidos"} ›
+          </button>
         </div>
         <button
           onClick={handleLogout}
@@ -172,13 +271,17 @@ export default function StaffScanPage() {
         </button>
       </header>
 
-
       {/* Body */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {state.phase === "station_select" && session && (
+          <StationSelectView token={session.token} onSelect={handleStationSelect} />
+        )}
+
         {state.phase === "queue" && session && (
           <OrderQueue
             token={session.token}
             venueId={session.venueId}
+            stationId={selectedStation?.id ?? null}
             onOpenOrder={(id) => handleOpenOrder(id)}
           />
         )}

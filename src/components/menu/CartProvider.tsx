@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import type { Product } from "@/lib/supabase/types";
-import { SESSION_ID_KEY } from "@/lib/constants";
+import { SESSION_ID_KEY, STATION_ID_KEY } from "@/lib/constants";
 
 const CART_KEY = "trago_cart";
 
@@ -24,6 +24,8 @@ export type CartContextType = {
   orderNotes: string;
   setOrderNotes: (notes: string) => void;
   sessionId: string;
+  stationId: string | null;
+  setStationId: (id: string) => void;
 };
 
 export const CartContext = createContext<CartContextType | null>(null);
@@ -43,6 +45,11 @@ function getOrCreateSessionId(): string {
   return id;
 }
 
+function loadStationId(): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(STATION_ID_KEY);
+}
+
 function loadCart(): CartItem[] {
   if (typeof window === "undefined") return [];
   try {
@@ -55,6 +62,12 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(loadCart);
   const [orderNotes, setOrderNotes] = useState("");
   const [sessionId] = useState<string>(getOrCreateSessionId);
+  const [stationId, setStationIdState] = useState<string | null>(loadStationId);
+
+  const setStationId = useCallback((id: string) => {
+    setStationIdState(id);
+    try { sessionStorage.setItem(STATION_ID_KEY, id); } catch {}
+  }, []);
 
   useEffect(() => {
     try { sessionStorage.setItem(CART_KEY, JSON.stringify(items)); } catch {}
@@ -96,6 +109,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
     setItems([]);
     setOrderNotes("");
     try { sessionStorage.removeItem(CART_KEY); } catch {}
+    // Keep stationId — customer stays at the same station
   }, []);
 
   const totalCount = items.reduce((sum, i) => sum + i.quantity, 0);
@@ -118,6 +132,8 @@ export default function CartProvider({ children }: { children: ReactNode }) {
         orderNotes,
         setOrderNotes,
         sessionId,
+        stationId,
+        setStationId,
       }}
     >
       {children}

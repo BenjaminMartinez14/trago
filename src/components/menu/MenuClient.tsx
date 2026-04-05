@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ShoppingBag, ChevronRight } from "lucide-react";
@@ -15,11 +15,17 @@ interface MenuClientProps {
   categories: Category[];
   products: Product[];
   stationName?: string;
+  stationId?: string;
 }
 
-export default function MenuClient({ venue, categories, products, stationName }: MenuClientProps) {
+export default function MenuClient({ venue, categories, products, stationName, stationId }: MenuClientProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const { totalCount, totalCLP } = useCart();
+  const { totalCount, totalCLP, setStationId } = useCart();
+
+  // Persist the station so checkout can include it in the order
+  useEffect(() => {
+    if (stationId) setStationId(stationId);
+  }, [stationId, setStationId]);
 
   const visibleProducts = useMemo(() => {
     if (!selectedCategoryId) return products;

@@ -89,6 +89,7 @@ export default async function MenuPage({ params, searchParams }: Props) {
         categories={categories}
         products={stationProducts}
         stationName={station.name}
+        stationId={station.id}
       />
     );
   }

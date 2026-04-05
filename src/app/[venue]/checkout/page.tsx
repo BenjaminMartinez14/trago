@@ -28,7 +28,7 @@ type CheckoutState =
 export default function CheckoutPage() {
   const params = useParams<{ venue: string }>();
   const router = useRouter();
-  const { items, totalCLP, orderNotes, sessionId, clearCart } = useCart();
+  const { items, totalCLP, orderNotes, sessionId, stationId, clearCart } = useCart();
   const isOnline = useOnlineStatus();
   const slug = params.venue;
 
@@ -59,6 +59,7 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           venueSlug: slug,
           sessionId,
+          stationId: stationId ?? undefined,
           items: items.map((i) => ({
             productId: i.product.id,
             quantity: i.quantity,
