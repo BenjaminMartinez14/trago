@@ -25,7 +25,7 @@ export async function sendOrderReadyWhatsApp(params: {
         recipient_type: "individual",
         template: {
           name: "order_confirmation",
-          language: { code: "es" },
+          language: { code: "es_419" },
           components: [
             {
               type: "body",

@@ -21,12 +21,12 @@ type CheckoutState =
   | { phase: "price_changed"; changes: PriceChange[] }
   | { phase: "error"; message: string };
 
-function normalizeChileanPhone(raw: string): string | null {
-  const d = raw.replace(/[\s\-().+]/g, "");
-  if (/^9\d{8}$/.test(d)) return `+56${d}`;
-  if (/^569\d{8}$/.test(d)) return `+${d}`;
-  if (/^\d{8,15}$/.test(d)) return `+${d}`;
-  return null;
+function normalizePhone(raw: string): string | null {
+  const stripped = raw.replace(/[\s\-().]/g, "");
+  if (stripped.startsWith("+")) {
+    return /^\+\d{7,15}$/.test(stripped) ? stripped : null;
+  }
+  return /^\d{7,15}$/.test(stripped) ? `+${stripped}` : null;
 }
 
 export default function CheckoutPage() {
@@ -43,6 +43,7 @@ export default function CheckoutPage() {
   const [priceOverrides, setPriceOverrides] = useState<Map<string, number>>(new Map());
   const submitted = useRef(false);
 
+  const [orderSnapshot, setOrderSnapshot] = useState<{ items: typeof items; total: number } | null>(null);
   const [phoneInput, setPhoneInput] = useState(customerPhone ?? "");
   const [phoneError, setPhoneError] = useState("");
 
@@ -86,6 +87,7 @@ export default function CheckoutPage() {
       if (!res.ok) { setState({ phase: "error", message: "No pudimos procesar tu pedido. Intenta nuevamente." }); return; }
 
       const { orderId, preferenceId } = await res.json();
+      setOrderSnapshot({ items: [...items], total: totalCLP });
       clearCart();
       setState({ phase: "ready", orderId, preferenceId });
     } catch {
@@ -94,8 +96,8 @@ export default function CheckoutPage() {
   }
 
   function handlePhoneContinue() {
-    const normalized = normalizeChileanPhone(phoneInput);
-    if (!normalized) { setPhoneError("Ingresa un número válido (ej: +56 9 1234 5678)"); return; }
+    const normalized = normalizePhone(phoneInput);
+    if (!normalized) { setPhoneError("Ingresa un número válido con código de país (ej: +56 9 1234 5678)"); return; }
     setPhoneError("");
     setCustomerPhone(normalized);
     submitted.current = false;
@@ -137,8 +139,8 @@ export default function CheckoutPage() {
           <div className="space-y-2">
             <input
               type="tel"
-              inputMode="numeric"
-              placeholder="+56 9 XXXX XXXX"
+              inputMode="tel"
+              placeholder="+56 9 1234 5678"
               value={phoneInput}
               onChange={(e) => { setPhoneInput(e.target.value); setPhoneError(""); }}
               onKeyDown={(e) => e.key === "Enter" && handlePhoneContinue()}
@@ -170,11 +172,11 @@ export default function CheckoutPage() {
       )}
 
       {/* Ready — summary + payment */}
-      {state.phase === "ready" && (
+      {state.phase === "ready" && orderSnapshot && (
         <div className="px-4 py-4 pb-10 space-y-5">
           <div className="bg-trago-card rounded-2xl border border-trago-border overflow-hidden">
-            {items.map((item, idx) => (
-              <div key={item.product.id} className={["flex justify-between items-center px-4 py-3.5", idx < items.length - 1 ? "border-b border-trago-border" : ""].join(" ")}>
+            {orderSnapshot.items.map((item, idx) => (
+              <div key={item.product.id} className={["flex justify-between items-center px-4 py-3.5", idx < orderSnapshot.items.length - 1 ? "border-b border-trago-border" : ""].join(" ")}>
                 <div>
                   <p className="text-white font-medium">{item.product.name}</p>
                   <p className="text-trago-muted text-sm">× {item.quantity}</p>
@@ -184,7 +186,7 @@ export default function CheckoutPage() {
             ))}
             <div className="flex justify-between items-center px-4 py-3 border-t border-trago-border bg-trago-dark/30">
               <span className="text-trago-muted font-medium">Total</span>
-              <span className="text-white font-bold text-lg tabular-nums">{formatCLP(totalCLP)}</span>
+              <span className="text-white font-bold text-lg tabular-nums">{formatCLP(orderSnapshot.total)}</span>
             </div>
           </div>
 
