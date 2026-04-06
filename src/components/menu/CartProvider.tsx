@@ -54,7 +54,7 @@ function loadStationId(): string | null {
 
 function loadCustomerPhone(): string | null {
   if (typeof window === "undefined") return null;
-  return sessionStorage.getItem(CUSTOMER_PHONE_KEY);
+  return localStorage.getItem(CUSTOMER_PHONE_KEY);
 }
 
 function loadCart(): CartItem[] {
@@ -79,7 +79,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
 
   const setCustomerPhone = useCallback((phone: string) => {
     setCustomerPhoneState(phone);
-    try { sessionStorage.setItem(CUSTOMER_PHONE_KEY, phone); } catch {}
+    try { localStorage.setItem(CUSTOMER_PHONE_KEY, phone); } catch {}
   }, []);
 
   useEffect(() => {
