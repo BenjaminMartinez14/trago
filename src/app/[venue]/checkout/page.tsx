@@ -56,7 +56,7 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function submitOrder(overrides: Map<string, number>) {
+  async function submitOrder(overrides: Map<string, number>, phoneOverride?: string) {
     if (!isOnline) return;
     setState({ phase: "creating" });
     try {
@@ -67,7 +67,7 @@ export default function CheckoutPage() {
           venueSlug: slug,
           sessionId,
           stationId: stationId ?? undefined,
-          customerPhone: customerPhone ?? undefined,
+          customerPhone: phoneOverride ?? customerPhone ?? undefined,
           items: items.map((i) => ({
             productId: i.product.id,
             quantity: i.quantity,
@@ -101,7 +101,7 @@ export default function CheckoutPage() {
     setPhoneError("");
     setCustomerPhone(normalized);
     submitted.current = false;
-    submitOrder(new Map());
+    submitOrder(new Map(), normalized);
   }
 
   if (!isOnline) {
