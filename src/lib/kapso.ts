@@ -25,14 +25,14 @@ export async function sendOrderReadyWhatsApp(params: {
         recipient_type: "individual",
         template: {
           name: "order_confirmation",
-          language: { code: "es_419" },
+          language: { code: "es_AR" },
           components: [
             {
               type: "body",
               parameters: [
                 {
                   type: "text",
-                  parameter_name: "order_number",
+                  parameter_name: "order_numer",
                   text: String(params.orderNumber),
                 },
               ],
