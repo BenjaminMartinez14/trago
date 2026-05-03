@@ -77,6 +77,15 @@ export default function MenuClient({ venue, categories, products, stationName, s
         )}
       </main>
 
+      {/* Legal links */}
+      <div className="px-4 py-6 flex justify-center items-center gap-x-4 gap-y-1 text-[11px] text-zinc-600 flex-wrap">
+        <Link href="/privacy" className="hover:text-zinc-400 transition-colors">Privacidad</Link>
+        <span>·</span>
+        <Link href="/terms" className="hover:text-zinc-400 transition-colors">Términos</Link>
+        <span>·</span>
+        <Link href="/contact" className="hover:text-zinc-400 transition-colors">Contacto</Link>
+      </div>
+
       {/* Floating cart bar */}
       {totalCount > 0 && (
         <div className="fixed bottom-0 inset-x-0 z-30 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] animate-slide-up">
