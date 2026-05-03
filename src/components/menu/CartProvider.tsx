@@ -5,6 +5,7 @@ import type { Product } from "@/lib/supabase/types";
 import { SESSION_ID_KEY, STATION_ID_KEY, CUSTOMER_PHONE_KEY } from "@/lib/constants";
 
 const CART_KEY = "trago_cart";
+const CART_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 export type CartItem = {
   product: Product;
@@ -60,8 +61,14 @@ function loadCustomerPhone(): string | null {
 function loadCart(): CartItem[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = sessionStorage.getItem(CART_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const raw = localStorage.getItem(CART_KEY);
+    if (!raw) return [];
+    const { items, savedAt } = JSON.parse(raw);
+    if (Date.now() - savedAt > CART_TTL_MS) {
+      localStorage.removeItem(CART_KEY);
+      return [];
+    }
+    return items ?? [];
   } catch { return []; }
 }
 
@@ -83,7 +90,13 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    try { sessionStorage.setItem(CART_KEY, JSON.stringify(items)); } catch {}
+    try {
+      if (items.length === 0) {
+        localStorage.removeItem(CART_KEY);
+      } else {
+        localStorage.setItem(CART_KEY, JSON.stringify({ items, savedAt: Date.now() }));
+      }
+    } catch {}
   }, [items]);
 
   const addItem = useCallback((product: Product) => {
@@ -121,7 +134,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   const clearCart = useCallback(() => {
     setItems([]);
     setOrderNotes("");
-    try { sessionStorage.removeItem(CART_KEY); } catch {}
+    try { localStorage.removeItem(CART_KEY); } catch {}
     // Keep stationId — customer stays at the same station
   }, []);
 
