@@ -10,7 +10,7 @@ import { formatCLP } from "@/lib/format";
 export default function CartPage() {
   const router = useRouter();
   const params = useParams<{ venue: string }>();
-  const { items, totalCLP, orderNotes, setOrderNotes } = useCart();
+  const { items, totalCLP } = useCart();
   const slug = params.venue;
 
   return (
@@ -52,23 +52,6 @@ export default function CartPage() {
               <CartItemRow key={item.product.id} item={item} />
             ))}
 
-            {/* Order notes */}
-            <div className="bg-trago-card rounded-2xl p-4 mt-2 border border-trago-border">
-              <label
-                htmlFor="order-notes"
-                className="block text-trago-muted text-sm font-medium mb-2"
-              >
-                Notas del pedido (opcional)
-              </label>
-              <textarea
-                id="order-notes"
-                value={orderNotes}
-                onChange={(e) => setOrderNotes(e.target.value)}
-                placeholder="Ej: sin hielo, sin gas…"
-                rows={3}
-                className="w-full bg-trago-dark text-white placeholder-zinc-600 rounded-xl px-4 py-3 text-sm resize-none border border-trago-border focus:outline-none focus:ring-2 focus:ring-trago-orange/30 focus:border-trago-orange/50 transition-all"
-              />
-            </div>
           </main>
 
           {/* Sticky checkout footer */}

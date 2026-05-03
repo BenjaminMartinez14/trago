@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { initMercadoPago, Wallet } from "@mercadopago/sdk-react";
-import { ArrowLeft, AlertTriangle, WifiOff, Loader2, XCircle, Phone, Heart } from "lucide-react";
+import { ArrowLeft, AlertTriangle, WifiOff, Loader2, XCircle, Heart } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { formatCLP } from "@/lib/format";
@@ -16,7 +16,6 @@ type UnavailableItem = { productId: string; name: string };
 type PriceChange = { productId: string; name: string; oldPrice: number; newPrice: number };
 
 type CheckoutState =
-  | { phase: "phone" }
   | { phase: "tip" }
   | { phase: "creating" }
   | { phase: "ready"; orderId: string; preferenceId: string }
@@ -26,31 +25,20 @@ type CheckoutState =
 
 const TIP_PRESETS = [0, 500, 1000] as const;
 
-function normalizePhone(raw: string): string | null {
-  const stripped = raw.replace(/[\s\-().]/g, "");
-  if (stripped.startsWith("+")) {
-    return /^\+\d{7,15}$/.test(stripped) ? stripped : null;
-  }
-  return /^\d{7,15}$/.test(stripped) ? `+${stripped}` : null;
-}
 
 export default function CheckoutPage() {
   const params = useParams<{ venue: string }>();
   const router = useRouter();
-  const { items, totalCLP, orderNotes, sessionId, stationId, customerPhone, setCustomerPhone, clearCart } = useCart();
+  const { items, totalCLP, orderNotes, sessionId, stationId, clearCart } = useCart();
   const isOnline = useOnlineStatus();
   const slug = params.venue;
 
-  const [state, setState] = useState<CheckoutState>(() =>
-    customerPhone ? { phase: "tip" } : { phase: "phone" }
-  );
+  const [state, setState] = useState<CheckoutState>({ phase: "tip" });
   const [brickKey, setBrickKey] = useState(0);
   const [priceOverrides, setPriceOverrides] = useState<Map<string, number>>(new Map());
   const submitted = useRef(false);
 
   const [orderSnapshot, setOrderSnapshot] = useState<{ items: typeof items; total: number; tip: number } | null>(null);
-  const [phoneInput, setPhoneInput] = useState(customerPhone ?? "");
-  const [phoneError, setPhoneError] = useState("");
   const [selectedTip, setSelectedTip] = useState<number>(0);
   const [customTipInput, setCustomTipInput] = useState("");
 
@@ -59,7 +47,7 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function submitOrder(overrides: Map<string, number>, phoneOverride?: string, tipOverride?: number) {
+  async function submitOrder(overrides: Map<string, number>, tipOverride?: number) {
     if (!isOnline) return;
     const tip = tipOverride ?? selectedTip;
     setState({ phase: "creating" });
@@ -71,7 +59,6 @@ export default function CheckoutPage() {
           venueSlug: slug,
           sessionId,
           stationId: stationId ?? undefined,
-          customerPhone: phoneOverride ?? customerPhone ?? undefined,
           tipCLP: tip,
           items: items.map((i) => ({
             productId: i.product.id,
@@ -79,7 +66,6 @@ export default function CheckoutPage() {
             unitPrice: overrides.get(i.product.id) ?? i.product.price_clp,
             notes: i.notes,
           })),
-          orderNotes: orderNotes || undefined,
         }),
       });
 
@@ -98,14 +84,6 @@ export default function CheckoutPage() {
     } catch {
       setState({ phase: "error", message: "Error de conexión. Verifica tu red e intenta nuevamente." });
     }
-  }
-
-  function handlePhoneContinue() {
-    const normalized = normalizePhone(phoneInput);
-    if (!normalized) { setPhoneError("Ingresa un número válido con código de país (ej: +56 9 1234 5678)"); return; }
-    setPhoneError("");
-    setCustomerPhone(normalized);
-    setState({ phase: "tip" });
   }
 
   function handleTipContinue() {
@@ -139,44 +117,6 @@ export default function CheckoutPage() {
           <h1 className="text-xl font-display text-white tracking-tight">Confirmar pedido</h1>
         </div>
       </header>
-
-      {/* Phone gate */}
-      {state.phase === "phone" && (
-        <div className="px-4 py-8 flex flex-col gap-5 max-w-sm mx-auto animate-fade-in">
-          <div className="text-center">
-            <div className="w-14 h-14 rounded-2xl bg-trago-orange/10 border border-trago-orange/20 flex items-center justify-center mx-auto mb-3">
-              <Phone className="w-6 h-6 text-trago-orange" />
-            </div>
-            <p className="text-white font-display text-xl">Tu número de WhatsApp</p>
-            <p className="text-zinc-500 text-sm mt-1">Te avisaremos cuando tu pedido esté listo</p>
-          </div>
-
-          <div className="space-y-2">
-            <input
-              type="tel"
-              inputMode="tel"
-              placeholder="+56 9 1234 5678"
-              value={phoneInput}
-              onChange={(e) => { setPhoneInput(e.target.value); setPhoneError(""); }}
-              onKeyDown={(e) => e.key === "Enter" && handlePhoneContinue()}
-              className="w-full h-14 bg-trago-card border border-trago-border rounded-2xl px-4 text-white text-lg placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-trago-orange/40 focus:border-trago-orange/50 transition-all"
-              autoFocus
-            />
-            {phoneError && <p className="text-red-400 text-sm px-1">{phoneError}</p>}
-          </div>
-
-          <button
-            onClick={handlePhoneContinue}
-            className="w-full h-14 bg-trago-orange text-white font-bold text-lg rounded-2xl touch-manipulation press-scale glow-orange"
-          >
-            Continuar
-          </button>
-
-          <p className="text-zinc-600 text-xs text-center">
-            Solo usaremos tu número para avisarte cuando tu pedido esté listo.
-          </p>
-        </div>
-      )}
 
       {/* Tip */}
       {state.phase === "tip" && (
@@ -239,7 +179,7 @@ export default function CheckoutPage() {
               const tip = resolvedTip();
               setSelectedTip(tip);
               submitted.current = false;
-              submitOrder(new Map(), undefined, tip);
+              submitOrder(new Map(), tip);
             }}
             className="w-full h-14 bg-trago-orange text-white font-bold text-lg rounded-2xl touch-manipulation press-scale glow-orange"
           >
