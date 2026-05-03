@@ -5,6 +5,7 @@ export const ORDER_STATUSES = [
   "ready",
   "delivered",
   "cancelled",
+  "refunded",
 ] as const;
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
@@ -16,6 +17,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   ready: "Listo",
   delivered: "Entregado",
   cancelled: "Cancelado",
+  refunded: "Reembolsado",
 };
 
 export const POLL_INTERVAL_MS = 3000;

@@ -27,7 +27,7 @@ type CreateOrderBody = {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 type VenueRow = Pick<Venue, "id" | "slug" | "mp_access_token" | "active">;
-type ProductRow = Pick<Product, "id" | "name" | "price_clp" | "available" | "venue_id">;
+type ProductRow = Pick<Product, "id" | "name" | "price_clp" | "available" | "venue_id"> & { stock_count: number | null };
 type OrderRow = Pick<Order, "id" | "order_number">;
 
 function isValidUUID(value: string): boolean {
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
 
   const { data: dbProductsRaw, error: productsError } = await supabase
     .from("products")
-    .select("id, name, price_clp, available, venue_id")
+    .select("id, name, price_clp, available, venue_id, stock_count")
     .in("id", productIds);
 
   if (productsError) {
@@ -140,6 +140,23 @@ export async function POST(request: Request) {
 
   if (unavailableItems.length > 0) {
     return NextResponse.json({ error: "UNAVAILABLE_ITEMS", unavailableItems }, { status: 409 });
+  }
+
+  // ── 4b. Check stock_count (when set) ──────────────────────────────────────
+  const insufficientStock = body.items
+    .filter((item) => {
+      const p = productMap.get(item.productId)!;
+      return p.stock_count !== null && p.stock_count < item.quantity;
+    })
+    .map((item) => ({
+      productId: item.productId,
+      name: productMap.get(item.productId)!.name,
+      requested: item.quantity,
+      available: productMap.get(item.productId)!.stock_count ?? 0,
+    }));
+
+  if (insufficientStock.length > 0) {
+    return NextResponse.json({ error: "INSUFFICIENT_STOCK", insufficientStock }, { status: 409 });
   }
 
   // ── 5. Check for price changes ────────────────────────────────────────────
@@ -207,6 +224,28 @@ export async function POST(request: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any).from("orders").update({ status: "cancelled" }).eq("id", order.id);
     return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
+  }
+
+  // ── 8b. Decrement stock_count atomically (only for products with finite stock) ──
+  for (const item of body.items) {
+    const product = productMap.get(item.productId)!;
+    if (product.stock_count === null) continue;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: stockUpdated } = await (supabase as any)
+      .from("products")
+      .update({ stock_count: product.stock_count - item.quantity })
+      .eq("id", item.productId)
+      .gte("stock_count", item.quantity) // race-safe: only succeeds if stock still sufficient
+      .select("id");
+    if (!stockUpdated || stockUpdated.length === 0) {
+      // Lost the race — roll back the order
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from("orders").update({ status: "cancelled" }).eq("id", order.id);
+      return NextResponse.json({
+        error: "INSUFFICIENT_STOCK",
+        insufficientStock: [{ productId: item.productId, name: product.name, requested: item.quantity, available: product.stock_count }],
+      }, { status: 409 });
+    }
   }
 
   // ── 9. Create Mercado Pago preference ─────────────────────────────────────

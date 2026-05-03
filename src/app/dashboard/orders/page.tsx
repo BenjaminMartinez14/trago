@@ -82,39 +82,86 @@ const STATUS_BADGE: Record<string, string> = {
   ready:     "text-trago-green bg-trago-green/10",
   delivered: "text-trago-green bg-trago-green/10",
   cancelled: "text-red-400 bg-red-400/10",
+  refunded:  "text-purple-300 bg-purple-500/10",
 };
 
 // ── Order row ─────────────────────────────────────────────────────────────────
 
-function OrderRow({ order, showStatus }: { order: Order; showStatus?: boolean }) {
+function OrderRow({ order, showStatus, onRefunded }: { order: Order; showStatus?: boolean; onRefunded?: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [refunding, setRefunding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const tip = (order as any).tip_clp ?? 0;
   const grand = order.total_clp + tip;
+  const canRefund = order.mp_payment_id && order.status !== "refunded" && ["paid","preparing","ready","delivered","cancelled"].includes(order.status);
+
+  async function doRefund() {
+    setRefunding(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/dashboard/orders/${order.id}/refund`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Error");
+        return;
+      }
+      onRefunded?.();
+    } finally {
+      setRefunding(false);
+      setConfirming(false);
+    }
+  }
+
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-trago-border last:border-0 hover:bg-white/[0.02] transition-colors">
-      <div className="flex items-center gap-3 min-w-0">
-        <span className="font-mono text-zinc-400 text-sm tabular-nums flex-shrink-0">
-          #{order.order_number}
-        </span>
-        {showStatus && (
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_BADGE[order.status] ?? "text-zinc-400 bg-zinc-400/10"}`}>
-            {ORDER_STATUS_LABELS[order.status] ?? order.status}
+    <div className="px-4 py-3 border-b border-trago-border last:border-0 hover:bg-white/[0.02] transition-colors">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="font-mono text-zinc-400 text-sm tabular-nums flex-shrink-0">
+            #{order.order_number}
           </span>
-        )}
-        {order.notes && (
-          <span className="text-zinc-500 text-xs truncate">{order.notes}</span>
-        )}
-      </div>
-      <div className="flex items-center gap-4 flex-shrink-0 ml-3">
-        <div className="text-right">
-          <p className="text-white font-semibold tabular-nums text-sm">{formatCLP(grand)}</p>
-          {tip > 0 && (
-            <p className="text-trago-orange text-xs tabular-nums">+{formatCLP(tip)} prop.</p>
+          {showStatus && (
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_BADGE[order.status] ?? "text-zinc-400 bg-zinc-400/10"}`}>
+              {ORDER_STATUS_LABELS[order.status] ?? order.status}
+            </span>
+          )}
+          {order.notes && (
+            <span className="text-zinc-500 text-xs truncate">{order.notes}</span>
           )}
         </div>
-        <span className="text-zinc-600 text-xs tabular-nums w-10 text-right">
-          {timeStr(order.created_at)}
-        </span>
+        <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+          {canRefund && !confirming && (
+            <button
+              onClick={() => setConfirming(true)}
+              className="text-purple-300 text-xs hover:text-purple-200 transition-colors"
+            >
+              Reembolsar
+            </button>
+          )}
+          <div className="text-right">
+            <p className="text-white font-semibold tabular-nums text-sm">{formatCLP(grand)}</p>
+            {tip > 0 && (
+              <p className="text-trago-orange text-xs tabular-nums">+{formatCLP(tip)} prop.</p>
+            )}
+          </div>
+          <span className="text-zinc-600 text-xs tabular-nums w-10 text-right">
+            {timeStr(order.created_at)}
+          </span>
+        </div>
       </div>
+
+      {confirming && (
+        <div className="mt-2 flex items-center justify-end gap-2">
+          {error && <span className="text-red-400 text-xs mr-auto">{error}</span>}
+          <button onClick={() => { setConfirming(false); setError(null); }} className="text-zinc-400 text-xs hover:text-white">Cancelar</button>
+          <button
+            onClick={doRefund}
+            disabled={refunding}
+            className="text-xs px-3 py-1 bg-purple-500/20 text-purple-200 rounded-md font-semibold disabled:opacity-50"
+          >
+            {refunding ? "Procesando…" : "Confirmar reembolso"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -131,6 +178,7 @@ function Section({
   Icon,
   orders,
   showStatus,
+  onRefunded,
 }: {
   label: string;
   description: string;
@@ -141,6 +189,7 @@ function Section({
   Icon: React.ElementType;
   orders: Order[];
   showStatus?: boolean;
+  onRefunded?: () => void;
 }) {
   if (orders.length === 0) return null;
 
@@ -164,7 +213,7 @@ function Section({
       </div>
       <div className="bg-trago-card">
         {orders.map((order) => (
-          <OrderRow key={order.id} order={order} showStatus={showStatus} />
+          <OrderRow key={order.id} order={order} showStatus={showStatus} onRefunded={onRefunded} />
         ))}
       </div>
     </div>

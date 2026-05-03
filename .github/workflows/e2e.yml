@@ -1,0 +1,24 @@
+name: E2E
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run E2E
+        env:
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+        run: npx playwright test

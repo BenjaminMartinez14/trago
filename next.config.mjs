@@ -1,4 +1,5 @@
 import withPWA from "@ducanh2912/next-pwa";
+import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -116,7 +117,7 @@ const runtimeCaching = [
   },
 ];
 
-export default withPWA({
+const pwaWrapped = withPWA({
   dest: "public",
   register: true,
   skipWaiting: true,
@@ -125,3 +126,7 @@ export default withPWA({
     runtimeCaching,
   },
 })(nextConfig);
+
+export default process.env.SENTRY_DSN
+  ? withSentryConfig(pwaWrapped, { silent: true, hideSourceMaps: true })
+  : pwaWrapped;

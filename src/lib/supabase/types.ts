@@ -15,7 +15,8 @@ export type OrderStatus =
   | "preparing"
   | "ready"
   | "delivered"
-  | "cancelled";
+  | "cancelled"
+  | "refunded";
 
 // ── Row shapes (no circular references) ──────────────────────────────────────
 

@@ -14,6 +14,7 @@ const STATUS_COLOR: Record<OrderStatus, string> = {
   ready:     "text-trago-green",
   delivered: "text-trago-green",
   cancelled: "text-red-400",
+  refunded:  "text-purple-300",
 };
 
 const STATUS_BG: Record<OrderStatus, string> = {
@@ -23,6 +24,7 @@ const STATUS_BG: Record<OrderStatus, string> = {
   ready:     "bg-trago-green/10 border-trago-green/20",
   delivered: "bg-trago-green/10 border-trago-green/20",
   cancelled: "bg-red-400/10 border-red-400/20",
+  refunded:  "bg-purple-500/10 border-purple-500/20",
 };
 
 const StatusIcon = ({ status }: { status: OrderStatus }) => {
@@ -34,6 +36,7 @@ const StatusIcon = ({ status }: { status: OrderStatus }) => {
     case "ready":     return <PartyPopper className={className} />;
     case "delivered": return <PartyPopper className={className} />;
     case "cancelled": return <Ban className={className} />;
+    case "refunded":  return <Ban className={className} />;
   }
 };
 
