@@ -19,6 +19,7 @@ type CreateOrderBody = {
   sessionId: string;
   stationId?: string;
   customerPhone?: string;
+  tipCLP?: number;
   items: OrderItem[];
   orderNotes?: string;
 };
@@ -57,11 +58,14 @@ function validateBody(body: unknown): CreateOrderBody {
       throw new ValidationError("item.unitPrice must be a non-negative number");
   }
 
+  const rawTip = typeof b.tipCLP === "number" ? Math.floor(b.tipCLP) : 0;
+
   return {
     venueSlug: b.venueSlug as string,
     sessionId: b.sessionId as string,
     stationId: typeof b.stationId === "string" && isValidUUID(b.stationId) ? b.stationId : undefined,
     customerPhone: typeof b.customerPhone === "string" ? b.customerPhone.trim().slice(0, 20) : undefined,
+    tipCLP: rawTip >= 0 && rawTip <= 100_000 ? rawTip : 0,
     items: b.items as OrderItem[],
     orderNotes: typeof b.orderNotes === "string" ? b.orderNotes : undefined,
   };
@@ -169,6 +173,7 @@ export async function POST(request: Request) {
       customer_phone: body.customerPhone ?? null,
       status: "pending",
       total_clp: totalCLP,
+      tip_clp: body.tipCLP ?? 0,
       notes: body.orderNotes ?? null,
     })
     .select("id, order_number")
@@ -207,14 +212,18 @@ export async function POST(request: Request) {
   // ── 9. Create Mercado Pago preference ─────────────────────────────────────
   let preferenceId: string;
   try {
+    const mpItems = body.items.map((item) => ({
+      title: productMap.get(item.productId)!.name,
+      quantity: item.quantity,
+      unit_price: productMap.get(item.productId)!.price_clp,
+      currency_id: "CLP" as const,
+    }));
+    if (body.tipCLP && body.tipCLP > 0) {
+      mpItems.push({ title: "Propina", quantity: 1, unit_price: body.tipCLP, currency_id: "CLP" as const });
+    }
     preferenceId = await createPreference({
       accessToken: venue.mp_access_token,
-      items: body.items.map((item) => ({
-        title: productMap.get(item.productId)!.name,
-        quantity: item.quantity,
-        unit_price: productMap.get(item.productId)!.price_clp,
-        currency_id: "CLP" as const,
-      })),
+      items: mpItems,
       orderId: order.id,
       venueSlug: venue.slug,
     });

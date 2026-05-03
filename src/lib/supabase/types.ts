@@ -64,6 +64,7 @@ interface OrderRow {
   order_number: number;
   status: OrderStatus;
   total_clp: number;
+  tip_clp: number;
   mp_payment_id: string | null;
   mp_status: string | null;
   notes: string | null;
@@ -160,6 +161,7 @@ interface OrderInsert {
   session_id: string;
   status?: OrderStatus;
   total_clp: number;
+  tip_clp?: number;
   mp_payment_id?: string | null;
   mp_status?: string | null;
   notes?: string | null;

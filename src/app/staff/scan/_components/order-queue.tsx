@@ -1,30 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Heart, ScanLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatCLP } from "@/lib/format";
-import { STAFF_STATUS_TRANSITIONS } from "@/lib/constants";
 import type { Order, OrderItem } from "@/lib/supabase/types";
 
 type OrderWithItems = Order & { order_items: OrderItem[] };
-
-function playBeep() {
-  try {
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
-  } catch {
-    // AudioContext blocked
-  }
-}
 
 function timeAgo(dateStr: string): string {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -34,7 +16,6 @@ function timeAgo(dateStr: string): string {
 }
 
 const SECTIONS: { status: string; title: string; accent: string; bg: string }[] = [
-  { status: "paid", title: "Pagados", accent: "text-trago-orange", bg: "border-trago-orange/30" },
   { status: "preparing", title: "Preparando", accent: "text-yellow-400", bg: "border-yellow-500/30" },
   { status: "ready", title: "Listos", accent: "text-trago-green", bg: "border-trago-green/30" },
 ];
@@ -44,15 +25,16 @@ export default function OrderQueue({
   venueId,
   stationId,
   onOpenOrder,
+  onScanQR,
 }: {
   token: string;
   venueId: string;
   stationId: string | null;
   onOpenOrder: (orderId: string) => void;
+  onScanQR: () => void;
 }) {
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
-  const [transitioning, setTransitioning] = useState<string | null>(null);
 
   const fetchOrders = useCallback(() => {
     const base = stationId
@@ -65,19 +47,16 @@ export default function OrderQueue({
       .then((d) => setOrders(d.orders ?? []));
   }, [token, stationId]);
 
-  // Fetch initial orders (re-fetch when stationId changes)
   useEffect(() => {
     setLoading(true);
     fetchOrders().finally(() => setLoading(false));
   }, [fetchOrders]);
 
-  // Polling fallback — ensures orders appear even when realtime drops
   useEffect(() => {
     const interval = setInterval(fetchOrders, 5_000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
 
-  // Re-fetch immediately when tab becomes visible (mobile staff switch apps often)
   useEffect(() => {
     const handleVisible = () => {
       if (document.visibilityState === "visible") fetchOrders();
@@ -107,7 +86,6 @@ export default function OrderQueue({
     [token]
   );
 
-  // Realtime subscription
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -124,31 +102,23 @@ export default function OrderQueue({
           const updated = payload.new as Order & { station_id?: string | null };
           if (!updated?.id) return;
 
-          // If a station filter is active, ignore orders from other stations (but keep unassigned ones)
           if (stationId && updated.station_id !== null && updated.station_id !== stationId) {
             setOrders((prev) => prev.filter((o) => o.id !== updated.id));
             return;
           }
 
-          const activeStatuses = ["paid", "preparing", "ready"];
+          const activeStatuses = ["preparing", "ready"];
 
           if (activeStatuses.includes(updated.status)) {
-            // Add or update
             setOrders((prev) => {
               const exists = prev.find((o) => o.id === updated.id);
               if (exists) {
                 return prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o));
               }
-              // New order — beep
-              if (updated.status === "paid") playBeep();
-              // We don't have items from realtime, fetch them
               fetchSingleOrder(updated.id);
               return prev;
             });
           } else if (updated.status === "delivered" || updated.status === "cancelled") {
-            // Only remove when explicitly terminal — ignore "pending" and other transient statuses.
-            // "pending" INSERT events can arrive after the poll already shows the order as "paid",
-            // and blindly removing on any non-active status would wipe visible orders.
             setOrders((prev) => prev.filter((o) => o.id !== updated.id));
           }
         }
@@ -160,108 +130,86 @@ export default function OrderQueue({
     };
   }, [venueId, stationId, fetchSingleOrder]);
 
-  async function handleTransition(orderId: string, action: string) {
-    setTransitioning(orderId);
-    const res = await fetch(`/api/staff/orders/${orderId}/transition`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ action }),
-    });
-
-    if (res.ok) {
-      const { newStatus } = await res.json();
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-      );
-      // Force a fresh fetch to replace any stale data the poll might return
-      fetchOrders();
-    }
-    setTransitioning(null);
-  }
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-trago-orange animate-spin" />
-      </div>
-    );
-  }
-
-  if (orders.length === 0) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 gap-3">
-        <p className="text-zinc-500 text-lg">Sin pedidos activos</p>
-        <p className="text-zinc-600 text-sm">Los nuevos pedidos aparecerán aquí automáticamente</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
-      {SECTIONS.map((section) => {
-        const sectionOrders = orders.filter((o) => o.status === section.status);
-        if (sectionOrders.length === 0) return null;
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Order list */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 space-y-6">
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center pt-16">
+            <Loader2 className="w-8 h-8 text-trago-orange animate-spin" />
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center text-center px-6 gap-3 pt-16">
+            <p className="text-zinc-500 text-lg">Sin pedidos activos</p>
+            <p className="text-zinc-600 text-sm">Escanea el QR del cliente para empezar</p>
+          </div>
+        ) : (
+          SECTIONS.map((section) => {
+            const sectionOrders = orders.filter((o) => o.status === section.status);
+            if (sectionOrders.length === 0) return null;
 
-        const transition = STAFF_STATUS_TRANSITIONS[section.status];
-
-        return (
-          <div key={section.status}>
-            <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${section.accent}`}>
-              {section.title} ({sectionOrders.length})
-            </p>
-            <div className="space-y-2">
-              {sectionOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className={`bg-trago-card border ${section.bg} rounded-xl p-3`}
-                >
-                  <div
-                    className="flex items-start justify-between mb-2 cursor-pointer"
-                    onClick={() => onOpenOrder(order.id)}
-                  >
-                    <div>
-                      <p className="text-white font-bold text-sm">
-                        #{order.order_number}
-                      </p>
-                      <div className="mt-0.5 space-y-0.5">
-                        {order.order_items?.map((i) => (
-                          <p key={i.id} className="text-zinc-400 text-xs">
-                            {i.product_name} ×{i.quantity}
-                            {i.notes && (
-                              <span className="text-yellow-400 ml-1">— {i.notes}</span>
-                            )}
+            return (
+              <div key={section.status}>
+                <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${section.accent}`}>
+                  {section.title} ({sectionOrders.length})
+                </p>
+                <div className="space-y-2">
+                  {sectionOrders.map((order) => (
+                    <div
+                      key={order.id}
+                      className={`bg-trago-card border ${section.bg} rounded-xl p-3 cursor-pointer active:scale-[0.98] transition-transform`}
+                      onClick={() => onOpenOrder(order.id)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-white font-bold text-sm">
+                            #{order.order_number}
                           </p>
-                        ))}
-                        {order.notes && (
-                          <p className="text-yellow-400 text-xs mt-1">📝 {order.notes}</p>
-                        )}
+                          <div className="mt-0.5 space-y-0.5">
+                            {order.order_items?.map((i) => (
+                              <p key={i.id} className="text-zinc-400 text-xs">
+                                {i.product_name} ×{i.quantity}
+                                {i.notes && (
+                                  <span className="text-yellow-400 ml-1">— {i.notes}</span>
+                                )}
+                              </p>
+                            ))}
+                            {order.notes && (
+                              <p className="text-yellow-400 text-xs mt-1">📝 {order.notes}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 ml-3">
+                          <p className="text-white text-sm font-semibold tabular-nums">
+                            {formatCLP(order.total_clp + ((order as any).tip_clp ?? 0))}
+                          </p>
+                          {(order as any).tip_clp > 0 && (
+                            <p className="text-trago-orange text-xs flex items-center justify-end gap-0.5 mt-0.5">
+                              <Heart className="w-3 h-3" />{formatCLP((order as any).tip_clp)}
+                            </p>
+                          )}
+                          <p className="text-zinc-500 text-xs">{timeAgo(order.created_at)}</p>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right shrink-0 ml-3">
-                      <p className="text-white text-sm font-semibold tabular-nums">
-                        {formatCLP(order.total_clp)}
-                      </p>
-                      <p className="text-zinc-500 text-xs">{timeAgo(order.created_at)}</p>
-                    </div>
-                  </div>
-                  {transition && (
-                    <button
-                      onClick={() => handleTransition(order.id, transition.action)}
-                      disabled={transitioning === order.id}
-                      className={`w-full h-10 ${transition.color} text-white font-semibold text-sm rounded-xl touch-manipulation press-scale disabled:opacity-50`}
-                    >
-                      {transitioning === order.id ? "…" : transition.label}
-                    </button>
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Floating scan button */}
+      <div className="fixed bottom-0 left-0 right-0 px-4 pb-8 pt-3 bg-gradient-to-t from-trago-black via-trago-black/90 to-transparent pointer-events-none">
+        <button
+          onClick={onScanQR}
+          className="w-full h-14 bg-trago-orange text-white font-bold text-base rounded-2xl touch-manipulation press-scale glow-orange-sm flex items-center justify-center gap-2 pointer-events-auto"
+        >
+          <ScanLine className="w-5 h-5" />
+          Escanear QR
+        </button>
+      </div>
     </div>
   );
 }

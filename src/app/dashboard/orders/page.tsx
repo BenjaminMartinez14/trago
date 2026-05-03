@@ -87,6 +87,8 @@ const STATUS_BADGE: Record<string, string> = {
 // ── Order row ─────────────────────────────────────────────────────────────────
 
 function OrderRow({ order, showStatus }: { order: Order; showStatus?: boolean }) {
+  const tip = (order as any).tip_clp ?? 0;
+  const grand = order.total_clp + tip;
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-trago-border last:border-0 hover:bg-white/[0.02] transition-colors">
       <div className="flex items-center gap-3 min-w-0">
@@ -103,9 +105,12 @@ function OrderRow({ order, showStatus }: { order: Order; showStatus?: boolean })
         )}
       </div>
       <div className="flex items-center gap-4 flex-shrink-0 ml-3">
-        <span className="text-white font-semibold tabular-nums text-sm">
-          {formatCLP(order.total_clp)}
-        </span>
+        <div className="text-right">
+          <p className="text-white font-semibold tabular-nums text-sm">{formatCLP(grand)}</p>
+          {tip > 0 && (
+            <p className="text-trago-orange text-xs tabular-nums">+{formatCLP(tip)} prop.</p>
+          )}
+        </div>
         <span className="text-zinc-600 text-xs tabular-nums w-10 text-right">
           {timeStr(order.created_at)}
         </span>
@@ -139,7 +144,7 @@ function Section({
 }) {
   if (orders.length === 0) return null;
 
-  const total = orders.reduce((s, o) => s + o.total_clp, 0);
+  const total = orders.reduce((s, o) => s + o.total_clp + ((o as any).tip_clp ?? 0), 0);
 
   return (
     <div className={`rounded-2xl border ${border} ${bg} overflow-hidden`}>

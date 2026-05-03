@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { getStaffTokenFromRequest, verifyStaffToken } from "@/lib/staff-auth";
 import { createServiceClient } from "@/lib/supabase/server";
-import { sendOrderReadyWhatsApp } from "@/lib/kapso";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_TRANSITIONS: Record<string, { from: string; to: string }> = {
-  accept: { from: "paid", to: "preparing" },
-  mark_ready: { from: "preparing", to: "ready" },
-  deliver: { from: "ready", to: "delivered" },
+const ALLOWED_TRANSITIONS: Record<string, { from: string | string[]; to: string }> = {
+  scan:   { from: "paid",                          to: "preparing" },
+  deliver: { from: ["preparing", "ready"],          to: "delivered" },
+  cancel: { from: ["paid", "preparing", "ready"],   to: "cancelled" },
 };
 
 export async function PATCH(
@@ -21,7 +20,7 @@ export async function PATCH(
   const staff = await verifyStaffToken(token);
   if (!staff) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
-  let body: { action: string };
+  let body: { action: string; stationId?: string | null };
   try {
     body = await request.json();
   } catch {
@@ -35,12 +34,11 @@ export async function PATCH(
 
   const service = createServiceClient();
 
-  // Fetch order
   const { data: order } = await (service as any)
     .from("orders")
-    .select("id, venue_id, status, order_number, customer_phone")
+    .select("*")
     .eq("id", params.id)
-    .single() as { data: { id: string; venue_id: string; status: string; order_number: number; customer_phone: string | null } | null };
+    .single() as { data: { id: string; venue_id: string; status: string; order_number: number; station_id: string | null } | null };
 
   if (!order) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -50,29 +48,37 @@ export async function PATCH(
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
-  // Optimistic concurrency: only update if status matches expected "from"
-  if (order.status !== transition.from) {
-    return NextResponse.json(
-      { error: "INVALID_TRANSITION", currentStatus: order.status, expectedStatus: transition.from },
-      { status: 409 }
-    );
-  }
-
-  const { error } = await (service as any)
+  const fromStatuses = Array.isArray(transition.from) ? transition.from : [transition.from];
+  const { error, data: updated } = await (service as any)
     .from("orders")
     .update({ status: transition.to, updated_at: new Date().toISOString() })
     .eq("id", params.id)
-    .eq("status", transition.from);
+    .eq("venue_id", staff.venueId)
+    .in("status", fromStatuses)
+    .select("id");
 
   if (error) {
     return NextResponse.json({ error: "DB_ERROR" }, { status: 500 });
   }
 
-  if (transition.to === "ready" && order.customer_phone) {
-    void sendOrderReadyWhatsApp({
-      to: order.customer_phone,
-      orderNumber: order.order_number,
-    }).catch((err) => console.error("[transition] kapso threw:", err));
+  if (!updated || updated.length === 0) {
+    const { data: current } = await (service as any)
+      .from("orders")
+      .select("status")
+      .eq("id", params.id)
+      .single() as { data: { status: string } | null };
+    return NextResponse.json(
+      { error: "INVALID_TRANSITION", currentStatus: current?.status ?? "unknown", expectedStatus: transition.from },
+      { status: 409 }
+    );
+  }
+
+  // On scan: assign station if order had none
+  if (body.action === "scan" && body.stationId && order.station_id === null) {
+    await (service as any)
+      .from("orders")
+      .update({ station_id: body.stationId })
+      .eq("id", params.id);
   }
 
   return NextResponse.json({ success: true, newStatus: transition.to });

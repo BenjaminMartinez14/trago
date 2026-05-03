@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { initMercadoPago, Wallet } from "@mercadopago/sdk-react";
-import { ArrowLeft, AlertTriangle, WifiOff, Loader2, XCircle, Phone } from "lucide-react";
+import { ArrowLeft, AlertTriangle, WifiOff, Loader2, XCircle, Phone, Heart } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { formatCLP } from "@/lib/format";
@@ -17,11 +17,14 @@ type PriceChange = { productId: string; name: string; oldPrice: number; newPrice
 
 type CheckoutState =
   | { phase: "phone" }
+  | { phase: "tip" }
   | { phase: "creating" }
   | { phase: "ready"; orderId: string; preferenceId: string }
   | { phase: "unavailable"; items: UnavailableItem[] }
   | { phase: "price_changed"; changes: PriceChange[] }
   | { phase: "error"; message: string };
+
+const TIP_PRESETS = [0, 500, 1000] as const;
 
 function normalizePhone(raw: string): string | null {
   const stripped = raw.replace(/[\s\-().]/g, "");
@@ -39,27 +42,26 @@ export default function CheckoutPage() {
   const slug = params.venue;
 
   const [state, setState] = useState<CheckoutState>(() =>
-    customerPhone ? { phase: "creating" } : { phase: "phone" }
+    customerPhone ? { phase: "tip" } : { phase: "phone" }
   );
   const [brickKey, setBrickKey] = useState(0);
   const [priceOverrides, setPriceOverrides] = useState<Map<string, number>>(new Map());
   const submitted = useRef(false);
 
-  const [orderSnapshot, setOrderSnapshot] = useState<{ items: typeof items; total: number } | null>(null);
+  const [orderSnapshot, setOrderSnapshot] = useState<{ items: typeof items; total: number; tip: number } | null>(null);
   const [phoneInput, setPhoneInput] = useState(customerPhone ?? "");
   const [phoneError, setPhoneError] = useState("");
+  const [selectedTip, setSelectedTip] = useState<number>(0);
+  const [customTipInput, setCustomTipInput] = useState("");
 
   useEffect(() => {
-    if (items.length === 0) { router.replace(`/${slug}`); return; }
-    if (state.phase === "creating" && !submitted.current) {
-      submitted.current = true;
-      submitOrder(new Map());
-    }
+    if (items.length === 0) router.replace(`/${slug}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function submitOrder(overrides: Map<string, number>, phoneOverride?: string) {
+  async function submitOrder(overrides: Map<string, number>, phoneOverride?: string, tipOverride?: number) {
     if (!isOnline) return;
+    const tip = tipOverride ?? selectedTip;
     setState({ phase: "creating" });
     try {
       const res = await fetch("/api/orders", {
@@ -70,6 +72,7 @@ export default function CheckoutPage() {
           sessionId,
           stationId: stationId ?? undefined,
           customerPhone: phoneOverride ?? customerPhone ?? undefined,
+          tipCLP: tip,
           items: items.map((i) => ({
             productId: i.product.id,
             quantity: i.quantity,
@@ -89,7 +92,7 @@ export default function CheckoutPage() {
       if (!res.ok) { setState({ phase: "error", message: "No pudimos procesar tu pedido. Intenta nuevamente." }); return; }
 
       const { orderId, preferenceId } = await res.json();
-      setOrderSnapshot({ items: [...items], total: totalCLP });
+      setOrderSnapshot({ items: [...items], total: totalCLP, tip });
       clearCart();
       setState({ phase: "ready", orderId, preferenceId });
     } catch {
@@ -102,8 +105,18 @@ export default function CheckoutPage() {
     if (!normalized) { setPhoneError("Ingresa un número válido con código de país (ej: +56 9 1234 5678)"); return; }
     setPhoneError("");
     setCustomerPhone(normalized);
+    setState({ phase: "tip" });
+  }
+
+  function handleTipContinue() {
     submitted.current = false;
-    submitOrder(new Map(), normalized);
+    submitOrder(new Map());
+  }
+
+  function resolvedTip(): number {
+    if (selectedTip !== -1) return selectedTip;
+    const parsed = parseInt(customTipInput.replace(/\D/g, ""), 10);
+    return isNaN(parsed) ? 0 : parsed;
   }
 
   if (!isOnline) {
@@ -156,12 +169,82 @@ export default function CheckoutPage() {
             onClick={handlePhoneContinue}
             className="w-full h-14 bg-trago-orange text-white font-bold text-lg rounded-2xl touch-manipulation press-scale glow-orange"
           >
-            Continuar al pago
+            Continuar
           </button>
 
           <p className="text-zinc-600 text-xs text-center">
             Solo usaremos tu número para avisarte cuando tu pedido esté listo.
           </p>
+        </div>
+      )}
+
+      {/* Tip */}
+      {state.phase === "tip" && (
+        <div className="px-4 py-8 flex flex-col gap-6 max-w-sm mx-auto animate-fade-in">
+          <div className="text-center">
+            <div className="w-14 h-14 rounded-2xl bg-trago-orange/10 border border-trago-orange/20 flex items-center justify-center mx-auto mb-3">
+              <Heart className="w-6 h-6 text-trago-orange" />
+            </div>
+            <p className="text-white font-display text-xl">¿Dejar propina?</p>
+            <p className="text-zinc-500 text-sm mt-1">100% va para los bartenders</p>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2">
+            {TIP_PRESETS.map((amount) => (
+              <button
+                key={amount}
+                onClick={() => { setSelectedTip(amount); setCustomTipInput(""); }}
+                className={[
+                  "h-14 rounded-2xl font-bold text-sm transition-all touch-manipulation press-scale",
+                  selectedTip === (amount as number)
+                    ? "bg-trago-orange text-white glow-orange-sm"
+                    : "bg-trago-card border border-trago-border text-white hover:border-trago-orange/40",
+                ].join(" ")}
+              >
+                {amount === 0 ? "$0" : formatCLP(amount)}
+              </button>
+            ))}
+            <button
+              onClick={() => setSelectedTip(-1)}
+              className={[
+                "h-14 rounded-2xl font-bold text-sm transition-all touch-manipulation press-scale",
+                selectedTip === -1
+                  ? "bg-trago-orange text-white glow-orange-sm"
+                  : "bg-trago-card border border-trago-border text-white hover:border-trago-orange/40",
+              ].join(" ")}
+            >
+              Otro
+            </button>
+          </div>
+
+          {selectedTip === -1 && (
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-medium">$</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder="0"
+                value={customTipInput}
+                onChange={(e) => setCustomTipInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleTipContinue()}
+                className="w-full h-14 bg-trago-card border border-trago-border rounded-2xl pl-8 pr-4 text-white text-lg placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-trago-orange/40 focus:border-trago-orange/50 transition-all"
+                autoFocus
+                min={0}
+              />
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              const tip = resolvedTip();
+              setSelectedTip(tip);
+              submitted.current = false;
+              submitOrder(new Map(), undefined, tip);
+            }}
+            className="w-full h-14 bg-trago-orange text-white font-bold text-lg rounded-2xl touch-manipulation press-scale glow-orange"
+          >
+            {resolvedTip() > 0 ? `Pagar con ${formatCLP(totalCLP + resolvedTip())} total` : "Continuar al pago"}
+          </button>
         </div>
       )}
 
@@ -186,9 +269,17 @@ export default function CheckoutPage() {
                 <p className="text-white font-semibold tabular-nums">{formatCLP(item.product.price_clp * item.quantity)}</p>
               </div>
             ))}
+            {orderSnapshot.tip > 0 && (
+              <div className="flex justify-between items-center px-4 py-3 border-t border-trago-border">
+                <span className="text-trago-muted font-medium flex items-center gap-1.5">
+                  <Heart className="w-3.5 h-3.5 text-trago-orange" /> Propina
+                </span>
+                <span className="text-trago-orange font-semibold tabular-nums">{formatCLP(orderSnapshot.tip)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center px-4 py-3 border-t border-trago-border bg-trago-dark/30">
               <span className="text-trago-muted font-medium">Total</span>
-              <span className="text-white font-bold text-lg tabular-nums">{formatCLP(orderSnapshot.total)}</span>
+              <span className="text-white font-bold text-lg tabular-nums">{formatCLP(orderSnapshot.total + orderSnapshot.tip)}</span>
             </div>
           </div>
 

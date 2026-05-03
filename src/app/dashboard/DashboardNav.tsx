@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, ShoppingBag, UtensilsCrossed, MapPin, LogOut } from "lucide-react";
+import { Home, ShoppingBag, UtensilsCrossed, MapPin, Users, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function DashboardNav({ email }: { email: string }) {
@@ -14,6 +14,7 @@ export default function DashboardNav({ email }: { email: string }) {
     { href: "/dashboard/orders", label: "Pedidos", icon: ShoppingBag },
     { href: "/dashboard/menu", label: "Menú", icon: UtensilsCrossed },
     { href: "/dashboard/stations", label: "Estaciones", icon: MapPin },
+    { href: "/dashboard/staff", label: "Staff", icon: Users },
   ];
 
   async function handleSignOut() {
