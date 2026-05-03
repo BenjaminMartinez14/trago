@@ -25,6 +25,7 @@ interface VenueRow {
   name: string;
   slug: string;
   logo_url: string | null;
+  accent_color: string | null;
   contact_email: string;
   mp_access_token: string;
   commission_pct: number;

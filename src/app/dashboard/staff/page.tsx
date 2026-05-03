@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, ShieldCheck, ScanLine, Power, KeyRound, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
 
 interface StaffMember {
   id: string;
@@ -228,11 +229,13 @@ export default function StaffPage() {
       body: JSON.stringify(data),
     });
     if (res.ok) {
+      toast.success(`${data.name} agregado`);
       await fetchStaff();
       setModal(null);
     } else {
       const d = await res.json();
       setApiError(d.error ?? "Error al crear");
+      toast.error("No se pudo crear el staff");
     }
     setSaving(false);
   }
@@ -247,11 +250,13 @@ export default function StaffPage() {
       body: JSON.stringify(body),
     });
     if (res.ok) {
+      toast.success("Cambios guardados");
       await fetchStaff();
       setModal(null);
     } else {
       const d = await res.json();
       setApiError(d.error ?? "Error al editar");
+      toast.error("No se pudo guardar");
     }
     setSaving(false);
   }
@@ -264,11 +269,13 @@ export default function StaffPage() {
       body: JSON.stringify({ pin }),
     });
     if (res.ok) {
+      toast.success("PIN actualizado");
       await fetchStaff();
       setModal(null);
     } else {
       const d = await res.json();
       setApiError(d.error ?? "Error al resetear PIN");
+      toast.error("No se pudo resetear el PIN");
     }
     setSaving(false);
   }
@@ -279,13 +286,19 @@ export default function StaffPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ active: !member.active }),
     });
-    if (res.ok) await fetchStaff();
+    if (res.ok) {
+      toast.success(member.active ? `${member.name} desactivado` : `${member.name} activado`);
+      await fetchStaff();
+    } else {
+      toast.error("No se pudo cambiar el estado");
+    }
   }
 
   async function handleDelete(member: StaffMember) {
     setSaving(true);
     const res = await fetch(`/api/dashboard/staff/${member.id}`, { method: "DELETE" });
     if (res.ok) {
+      toast.success(`${member.name} eliminado`);
       await fetchStaff();
       setModal(null);
     }

@@ -22,9 +22,14 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+const TITLE = "Trago — Ordena sin filas";
+const DESCRIPTION = "Ordena y paga desde tu celular en el bar. Apple Pay, Google Pay y tarjeta. Sin filas, sin fricción.";
+const SITE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://trago-app.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Trago",
-  description: "Ordena y paga desde tu celular — sin filas.",
+  metadataBase: new URL(SITE),
+  title: { default: TITLE, template: "%s — Trago" },
+  description: DESCRIPTION,
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -39,6 +44,21 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Trago",
+  },
+  openGraph: {
+    type: "website",
+    locale: "es_CL",
+    siteName: "Trago",
+    title: TITLE,
+    description: DESCRIPTION,
+    url: SITE,
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Trago" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/og-image.png"],
   },
 };
 

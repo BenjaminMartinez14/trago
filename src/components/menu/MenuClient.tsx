@@ -7,11 +7,12 @@ import { ShoppingBag, ChevronRight } from "lucide-react";
 import type { Category, Product, Venue } from "@/lib/supabase/types";
 import CategoryNav from "./CategoryNav";
 import ProductCard from "./ProductCard";
+import InstallPrompt from "@/components/InstallPrompt";
 import { useCart } from "@/hooks/useCart";
 import { formatCLP } from "@/lib/format";
 
 interface MenuClientProps {
-  venue: Pick<Venue, "id" | "name" | "slug" | "logo_url">;
+  venue: Pick<Venue, "id" | "name" | "slug" | "logo_url" | "accent_color">;
   categories: Category[];
   products: Product[];
   stationName?: string;
@@ -34,6 +35,7 @@ export default function MenuClient({ venue, categories, products, stationName, s
 
   return (
     <div className="min-h-screen bg-trago-black">
+      <InstallPrompt />
       {/* Sticky header */}
       <header className="sticky top-0 z-20 glass-heavy">
         <div className="px-4 pt-4 pb-0 flex items-center gap-3">

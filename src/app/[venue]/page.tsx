@@ -30,12 +30,12 @@ export default async function MenuPage({ params, searchParams }: Props) {
 
   const { data: venueRaw } = await supabase
     .from("venues")
-    .select("id, name, slug, logo_url")
+    .select("id, name, slug, logo_url, accent_color")
     .eq("slug", params.venue)
     .eq("active", true)
     .single();
 
-  const venue = venueRaw as Pick<Venue, "id" | "name" | "slug" | "logo_url"> | null;
+  const venue = venueRaw as Pick<Venue, "id" | "name" | "slug" | "logo_url" | "accent_color"> | null;
   if (!venue) notFound();
 
   const stationSlug = searchParams.s;

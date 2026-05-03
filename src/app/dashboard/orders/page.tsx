@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ShoppingBag, CheckCircle2, Clock, Ban, TrendingUp, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { formatCLP } from "@/lib/format";
 import type { Order } from "@/lib/supabase/types";
@@ -103,8 +104,10 @@ function OrderRow({ order, showStatus, onRefunded }: { order: Order; showStatus?
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         setError(body.error ?? "Error");
+        toast.error("No se pudo reembolsar el pedido");
         return;
       }
+      toast.success(`Pedido #${order.order_number} reembolsado`);
       onRefunded?.();
     } finally {
       setRefunding(false);
